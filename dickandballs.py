@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import sympy as sp
+from scipy.spatial.distance import cdist
 
 
 class Kernel:
@@ -24,6 +25,8 @@ class Kernel:
         Parameters:
         - x1: First input array.
         - x2: Second input array (optional, defaults to x1 for self-covariance).
+        arrays can either be 1D or in shape (n,1)
+
 
         Returns:
         - Covariance matrix (NxN or NxM).
@@ -40,18 +43,30 @@ class Kernel:
     # defining kernels below
     def _SE(self, x1, x2):
         """The square exponential covariance function. 
-        Only works for 1D input. And with itself."""
+        Only works for 1D input. And with itself.
+        """
+
+        # ensure arrays are of shape (n,1)
+        x1 = self._ensure_shape(x1)
+        x2 = self._ensure_shape(x2)
         
         sigma = self.params.get("sigma", 1)
         l = self.params.get("l", 1)
-        r = np.subtract.outer(x1, x2)
-        K = sigma ** 2 * np.exp(-r / (2 * l ** 2))
+
+        r2 = cdist(x1, x2, metric='sqeuclidean')
+        K = sigma ** 2 * np.exp(-0.5 * r2 / ( l ** 2))
 
         #if x1.shape == x2.shape:
         #    jitter = 1e-10
         #    K += np.diag(np.full(x1.shape[0], jitter))
         
         return K
+    
+    def _ensure_shape(self, x):
+        """Ensure that the input array is of shape (n,1)."""
+        if x.ndim == 1:
+            return x.reshape(-1,1)
+        return x
 
 
 class GP:
@@ -59,6 +74,10 @@ class GP:
     def __init__(self):
         pass
 
+    def process():
+        y = np.random.multivariate_normal(mean=mu, cov=K, size=n)
+        return y
+    
     def fit(x1, x2, f, kernel):
 
         pass
