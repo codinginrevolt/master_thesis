@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import sympy as sp
 from scipy.spatial.distance import cdist
+from scipy.linalg import cho_solve, solve_triangular, cholesky
+
 
 
 class Kernel:
@@ -80,4 +82,23 @@ class GP:
     
     def fit(x1, x2, f, kernel):
 
-        pass
+        kernel = kernel
+        K_11 = kernel.compute(x1)
+        K_12 = kernel.compute(x1, x2)
+        K_22 = kernel.compute(x2)
+
+        #K_11[np.diag_indices_from(K_11)] += 1e-10
+
+        L = cholesky(K_11, lower=True)
+
+        alpha = cho_solve((L,True), f) # cho_solve does A\f (where A = LL.T) as opposed to using solve_triangular to find (L\f) and then (L.T \ (L\f))
+    
+        v = solve_triangular(L, K_12, lower=True)
+
+        mean_star = K_12.T @ alpha
+        
+        
+        cov_star = K_22 - (v.T @ v)
+
+        
+        return mean_star, cov_star
