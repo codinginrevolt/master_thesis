@@ -59,6 +59,8 @@ class Kernel:
         r2 = cdist(x1, x2, metric='sqeuclidean')
         K = sigma ** 2 * np.exp(-0.5 * r2 / ( l ** 2))
 
+        self.name = "Square Exponential"
+
         return K
     
     # utilities
@@ -67,6 +69,19 @@ class Kernel:
         if x.ndim == 1:
             return x.reshape(-1,1)
         return x
+    
+    def __str__(self):
+        param_str = ""
+        for key, value in self.params.items():
+            if param_str:
+                # Add a comma if param_str is not empty
+                param_str += f", {key} = {value}"
+            else:
+                # Add the first key-value pair without a comma
+                param_str += f"{key} = {value}"
+
+        return f"Kernel is {self.kernel_type} with hyperparameters: {param_str})"
+
 
 
 class GP:
@@ -126,7 +141,7 @@ class GP:
         self.mean_star = mean_test + (K_12.T @ alpha)
         self.cov_star = K_22 - (v.T @ v)
 
-    def process(self,n=1, mu=None, cov=None):
+    def posterior(self,n=1, mu=None, cov=None):
         """
         uses covariance metric and mean to produce 1 function from the GP
         input: n samples
@@ -140,7 +155,8 @@ class GP:
         if self.mean_star is None or self.cov_star is None:
             print("Use the fit function first before producing the GP or provide mean and kernel")
 
-        y = np.random.multivariate_normal(mean=mu, cov=cov, size=n)
+        rng = np.random.default_rng()
+        y = rng.multivariate_normal(mean=mu, cov=cov, size=n)
         sig = np.sqrt(np.diag(self.cov_star))
 
         return y, sig
