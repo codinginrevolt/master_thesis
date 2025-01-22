@@ -1,27 +1,31 @@
 import numpy as np
-import pandas as pd
+
 import matplotlib.pyplot as plt
 import seaborn as sns
-import sympy as sp
+
 from scipy.spatial.distance import cdist
 from scipy.linalg import cho_solve, solve_triangular, cholesky
 from scipy.integrate import cumulative_simpson as cumsimp
 
+from collections.abc import Callable
+
+
 
 
 class Kernel:
-    def __init__(self, kernel_type="SE", **kwargs):
+    def __init__(self, kernel_type: str ="SE", **kwargs: float) -> None: 
         """
-        Initialize the kernel with a specific type and hyperparameters.
+        Initialize the kernel with a specific type and its hyperparameters.
 
         Parameters:
         - kernel_type: Type of kernel ('SE' for sqaured exponential, more later).
-        - kwargs: Hyperparameters for the kernel (e.g., sigma, l).
+        - kwargs: Hyperparameters for the kernel (e.g. sigma, l).
         """
-        self.kernel_type = kernel_type
-        self.params = kwargs
 
-    def compute(self, x1, x2=None):
+        self.kernel_type: str = kernel_type
+        self.params: dict[str, float]  = kwargs
+
+    def compute(self, x1: np.ndarray, x2: np.ndarray|None =None) -> np.ndarray:
         """
         Compute the covariance matrix for the given inputs.
 
@@ -44,7 +48,7 @@ class Kernel:
             raise ValueError(f"Unknown kernel type: {self.kernel_type}")
         
     # defining kernels below
-    def _SE(self, x1, x2):
+    def _SE(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         """The square exponential covariance function. 
         Only works for 1D input. And with itself.
         """
@@ -53,24 +57,25 @@ class Kernel:
         x1 = self._ensure_shape(x1)
         x2 = self._ensure_shape(x2)
         
-        sigma = self.params.get("sigma", 1)
-        l = self.params.get("l", 1)
+        sigma: float = self.params.get("sigma", 1)
+        l: float = self.params.get("l", 1)
 
-        r2 = cdist(x1, x2, metric='sqeuclidean')
-        K = sigma ** 2 * np.exp(-0.5 * r2 / ( l ** 2))
+        r2: np.ndarray = cdist(x1, x2, metric='sqeuclidean')
+        K: np.ndarray = sigma ** 2 * np.exp(-0.5 * r2 / ( l ** 2))
 
         self.name = "Square Exponential"
 
         return K
     
     # utilities
-    def _ensure_shape(self, x):
+    @staticmethod
+    def _ensure_shape(self, x: np.ndarray) -> np.ndarray:
         """Ensure that the input array is of shape (n,1)."""
         if x.ndim == 1:
             return x.reshape(-1,1)
         return x
     
-    def __str__(self):
+    def __str__(self) -> str:
         param_str = ""
         for key, value in self.params.items():
             if param_str:
@@ -91,7 +96,7 @@ class GP:
     - kernel
     - prior mean: mean function to be evaluated at x_train and x_test or a global mean
     """
-    def __init__(self, kernel, prior_mean = None):
+    def __init__(self, kernel: Kernel, prior_mean: float|np.ndarray|Callable[[np.ndarray],np.ndarray]|None = None) -> None:
         self.kernel = kernel
         if prior_mean is not None: 
             self.prior_mean = prior_mean
@@ -101,30 +106,18 @@ class GP:
         self.cov_star = None
 
 
-    def fit(self, x1, x2, f, stabilise=False, jitter_value=1e-10):
+    
+    def fit(self, x1: np.ndarray, x2: np.ndarray, f: np.ndarray, stabilise: bool = False, jitter_value: float = 1e-10) -> None:
         """
         fits the GP with the training data
         input of training data x1 and f, test data x2, whether to stabilise with jitter and jitter value
         increase jitter value if error like 
+        uses algorithm 2.1 from gp book
         returns the mean and covariance metric
         """
-
-        if callable(self.prior_mean):
-            # if prior_mean is function, evaluate fx at every point
-            mean_train = self.prior_mean(x1)
-            mean_test = self.prior_mean(x2)
-        else:
-            # use the constant value
-            mean_train = self.prior_mean
-            mean_test = self.prior_mean
-        
-        K_11 = self.kernel.compute(x1)
-        K_12 = self.kernel.compute(x1, x2)
-        K_22 = self.kernel.compute(x2)
-
-        if stabilise:
-            # add jitter to the diagonals, helps with numerical stability
-            K_11[np.diag_indices_from(K_11)] += jitter_value
+        # TODO: add functionality for observations with errors
+        mean_train, mean_test = self._set_means(x1, x2)
+        K_11, K_12, K_22 = self._set_kernels(x1, x2, stabilise, jitter_value)
 
         try:
             # Perform Cholesky decomposition
@@ -134,14 +127,16 @@ class GP:
 
         f_tilde = f - mean_train # setting f_tilde to have mean of zero
 
-        alpha = cho_solve((L,True), f_tilde) # cho_solve does A\f (where A = LL.T) as opposed to using solve_triangular to find (L\f) and then (L.T \ (L\f))
-    
-        v = solve_triangular(L, K_12, lower=True)
+        alpha = cho_solve((L,True), f_tilde) # cho_solve does A\x (where A = LL.T) as opposed to using solve_triangular to find (L\x) and then (L.T \ (L\x)). L\x is Lx=F
 
+        v = solve_triangular(L, K_12, lower=True)
+        
         self.mean_star = mean_test + (K_12.T @ alpha)
         self.cov_star = K_22 - (v.T @ v)
 
-    def posterior(self,n=1, mu=None, cov=None):
+
+
+    def posterior(self, n: int = 1, mu: np.ndarray|float = None, cov: np.ndarray = None) -> tuple[np.ndarray, np.ndarray]:
         """
         uses covariance metric and mean to produce 1 function from the GP
         input: n samples
@@ -160,6 +155,26 @@ class GP:
         sig = np.sqrt(np.diag(self.cov_star))
 
         return y, sig
+    
+    # utils
+    def _set_means(self, x1: np.ndarray, x2: np.ndarray) -> tuple[np.ndarray|float, np.ndarray|float]:
+        if callable(self.prior_mean):
+            mean_train = self.prior_mean(x1)
+            mean_test = self.prior_mean(x2)
+        else:
+            mean_train = self.prior_mean
+            mean_test = self.prior_mean
+        return mean_train, mean_test
+
+    def _set_kernels(self, x1: np.ndarray, x2: np.ndarray, stabilise: bool, jitter_value: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        K_11 = self.kernel.compute(x1)
+        K_12 = self.kernel.compute(x1, x2)
+        K_22 = self.kernel.compute(x2)
+
+        if stabilise:
+            # add jitter to the diagonals, helps with numerical stability
+            K_11[np.diag_indices_from(K_11)] += jitter_value
+        return K_11, K_12, K_22
     
 
 class EosProperties:
