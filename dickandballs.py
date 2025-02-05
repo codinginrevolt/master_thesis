@@ -19,7 +19,8 @@ class Kernel:
 
         Parameters:
         - kernel_type: Type of kernel ('SE' for sqaured exponential, more later).
-        - kwargs: Hyperparameters for the kernel (e.g. sigma, l).
+        - kwargs: Hyperparameters for the kernel (e.g. sigma, l). The naming is very specific
+            -- For SE kernel, the arguments must be named 'sigma' and 'l'
         """
 
         self.kernel_type: str = kernel_type
@@ -122,10 +123,10 @@ class GP:
 
         self.mean_star = None
         self.cov_star = None
-        self.log_marginal_likelihood = None
+        #self.log_marginal_likelihood = None #is this needed?
 
     
-    def fit(self, x1: np.ndarray, x2: np.ndarray, f: np.ndarray, var_f: np.ndarray|None = None, return_marginal_likelihood: bool = False, stabilise: bool = False, jitter_value: float = 1e-10, ) -> None:
+    def fit(self, x1: np.ndarray, x2: np.ndarray, f: np.ndarray, var_f: np.ndarray|None = None, stabilise: bool = False, jitter_value: float = 1e-10, ) -> None:
         """
         fits the GP with the training data
         input of training data x1 and f with noise var_f, test data x2, whether to stabilise with jitter and jitter value
@@ -133,29 +134,25 @@ class GP:
 
         uses algorithm 2.1 from gp book
         returns the mean and covariance metric
+
+        commented argument:  return_marginal_likelihood: bool = False,
         """
         # DOING: add functionality for observations with errors
         mean_train, mean_test = self._set_means(x1, x2)
         K_11, K_12, K_22 = self._set_kernels(x1, x2, var_f, stabilise, jitter_value)
 
-        try:
-            # Perform Cholesky decomposition
-            L = cholesky(K_11, lower=True) # delete this: 2.1: Line 2
-        except Exception as e:
-            raise ValueError("The matrix K_11 probably is not semi-positive definite. Using a jitter value (set stabilise=True), or increasing it (default jitter_value=1e-10) can help with numerical stability.") from e
-
         f_tilde = f - mean_train # setting f_tilde to have mean of zero
-        
-        # delete this: below is 2.1 Line 3
-        alpha = cho_solve((L,True), f_tilde) # cho_solve does A\x (where A = LL.T) as opposed to using solve_triangular to find (L\x) and then (L.T \ (L\x)). L\x is Lx=F
 
-        v = solve_triangular(L, K_12, lower=True) # delete this: 2.1 Line 5
+        L, alpha = self._compute_cholesky(K_11, f_tilde)
 
-        if return_marginal_likelihood:
-           self._get_log_likelihood(f_tilde, alpha, L, len(alpha))
-        
-        self.mean_star = mean_test + (K_12.T @ alpha) # delete this: 2.1 Line 4
-        self.cov_star = K_22 - (v.T @ v) # delete this: 2.1 Line 6
+        v = solve_triangular(L, K_12, lower=True) # delete this comment: 2.1 Line 5
+
+        # if return_marginal_likelihood:
+        #   self._get_log_likelihood(f_tilde, alpha, L, len(alpha))
+        # no point in getting likelihood here yet
+
+        self.mean_star = mean_test + (K_12.T @ alpha) # delete this comment: 2.1 Line 4
+        self.cov_star = K_22 - (v.T @ v) # delete this comment: 2.1 Line 6
 
 
 
@@ -179,6 +176,20 @@ class GP:
 
         return y, sig
     
+    def get_log_likelihood(self, x: np.ndarray, f: np.ndarray, var_f: np.ndarray|None, stabilise: bool = True, jitter_value: float = 10e-10) -> float:
+        """eq 2.30 and line 7 in algo 2.1"""
+
+        K11 = self._set_K_11(x, var_f, stabilise, jitter_value)
+        L, alpha = self._compute_cholesky(K11, f)
+        n = len(alpha)
+
+        term1 = -(1/2)*(f@alpha) #np way for f.T alpha
+        term2 = - np.sum(np.log(np.diag(L)))
+        term3 = - (1/2)*n*np.log(2*np.pi)    
+
+        log_marginal_likelihood = term1 + term2 + term3
+        return log_marginal_likelihood
+    
     # utils
     def _set_means(self, x1: np.ndarray, x2: np.ndarray) -> tuple[np.ndarray|float, np.ndarray|float]:
         if callable(self.prior_mean):
@@ -190,9 +201,16 @@ class GP:
         return mean_train, mean_test
 
     def _set_kernels(self, x1: np.ndarray, x2: np.ndarray, var_f: None|np.ndarray|float, stabilise: bool, jitter_value: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        K_11 = self.kernel.compute(x1)
+        K_11 = self._set_K_11(x1, var_f, stabilise, jitter_value)
         K_12 = self.kernel.compute(x1, x2)
         K_22 = self.kernel.compute(x2)
+
+
+        return K_11, K_12, K_22
+    
+    def _set_K_11(self, x1: np.ndarray, var_f: None|np.ndarray|float, stabilise: bool, jitter_value: float) -> np.ndarray:
+
+        K_11 = self.kernel.compute(x1)
 
         if var_f is not None:
             var_f = np.atleast_1d(var_f)
@@ -202,11 +220,21 @@ class GP:
             # add jitter to the diagonals, helps with numerical stability
             K_11[np.diag_indices_from(K_11)] += jitter_value
 
-        return K_11, K_12, K_22
+        return K_11
+
     
-    def _get_log_likelihood(self, y, alpha, L, n):
-        """eq 2.30 and line 7 in algo 2.1"""
-        self.log_marginal_likelihood = -(1/2)*(y.T*alpha) - np.sum(np.log(np.diag(L))) - (1/2)*n*np.log(2*np.pi)
+    def _compute_cholesky(self, K_11: np.ndarray, f: np.ndarray) -> np.ndarray|tuple:
+        try:
+            # Perform Cholesky decomposition
+            L = cholesky(K_11, lower=True) # delete this comment: 2.1: Line 2
+        except Exception as e:
+            raise ValueError("The matrix K_11 probably is not semi-positive definite. Using a jitter value (set stabilise=True), or increasing it (default jitter_value=1e-10) can help with numerical stability.") from e
+        
+        # delete this comment: below is 2.1 Line 3
+        alpha = cho_solve((L,True), f) # cho_solve does A\x (where A = LL.T) as opposed to using solve_triangular to find (L\x) and then (L.T \ (L\x)). L\x is Lx=F
+
+        return L, alpha
+    
 
 class EosProperties:
     """
@@ -217,6 +245,8 @@ class EosProperties:
     eos = EosProperties(mu_0, epsi_0, p_0, n, phi)
     results = eos.get_all()
     print(results)
+
+    TODO: make the functions be able to work outside of class, i.e take arguments other than self
     """
     def __init__(self,  n: np.ndarray, phi: np.ndarray, epsi_0: float, p_0: float, mu_0: float) -> None:
         self.mu_0 = mu_0

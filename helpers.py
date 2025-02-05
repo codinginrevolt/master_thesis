@@ -7,11 +7,16 @@ import dickandballs as db
 def get_hype_samples():
     
     rng = np.random.default_rng()
-    cs2_hat = rng.normal(0.5,0.25**2)
-    l = rng.normal(1, 0.25**2)
-    nu = rng.normal(1.25, 0.2**2)
+    nu = rng.normal(1.25, 0.2)
+    l = rng.normal(1, 0.5) # note that std here is different than the ones in the qcd papers
 
-    return cs2_hat, l, nu
+    cs2_hat = rng.normal(0.5,0.25)
+    while cs2_hat<0 or cs2_hat>1: # sound speed shouldnt be negative or more than c
+        cs2_hat = rng.normal(0.5,0.25)        
+
+
+
+    return cs2_hat, nu, l
 
 def get_phi(cs2):
     return -np.log(1/cs2 - 1)
