@@ -49,7 +49,7 @@ class Kernel:
             raise ValueError(f"Unknown kernel type: {self.kernel_type}")
         
     @staticmethod
-    def visualise_kernel(covmat: np.ndarray, title: str|None = None) -> None:
+    def visualise_kernel(covmat: np.ndarray, title: str|None = None, annotation: bool = True) -> None:
         """Visualise the covariance matrix as a heatmap"""
         if title is None:
             Title = 'Covariance Matrix'
@@ -57,7 +57,7 @@ class Kernel:
             Title = title
 
         fig, ax = plt.subplots(figsize=(10, 8))
-        heatmap = sns.heatmap(covmat, annot=True, fmt=".2g", ax=ax, cmap='mako')
+        heatmap = sns.heatmap(covmat, annot=annotation, fmt=".2g", ax=ax, cmap='mako')
         ax.set_title(Title)
         plt.show()
 
