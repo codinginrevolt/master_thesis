@@ -253,7 +253,7 @@ class EosProperties:
         self.epsi_0 = epsi_0
         self.p_0 = p_0
         self.n = n
-        self.phi = phi
+        self.phi = phi.flatten()
         self.cs2 = None
         self.mu = None
         self.epsilon = None
