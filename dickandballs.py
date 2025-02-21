@@ -273,17 +273,9 @@ class EosProperties:
         """
         integrand = self.cs2 / self.n
         integral = cumsimp(y=integrand, x=self.n, initial=np.log(self.mu_0))
-        log_mu = np.log(self.mu_0) + integral
 
-        try:
-            # Try to compute mu
-            self.mu = np.exp(log_mu)
-        except Exception as e:
-            # Return log_mu if it doesn't work
-            print("Error in exponentiating, returning log_mu instead")
-            self.mu = log_mu
-        
-        #TODO: make sure log_mu return is handled when get_all() is called
+        self.mu = np.exp(integral) #self.mu_0 * np.exp(integral)
+
 
         return self.mu
 
@@ -294,7 +286,7 @@ class EosProperties:
         self.epsilon = self.epsi_0 + cumsimp(y=self.mu, x=self.n, initial=self.epsi_0)
         return self.epsilon
 
-    def get_pressure1(self):
+    def get_pressure1(self):    
         """below eq 9"""
         self.pressure1 = -self.epsilon + self.mu * self.n
         return self.pressure1

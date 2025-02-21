@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import scipy.stats as stats
 
 from scipy.stats import loguniform
 
@@ -45,10 +46,39 @@ def get_pqcd(X: float, mu_low: float = 2.2, mu_high:float = 2.8, size: int = 100
 def get_phi(cs2):
     return -np.log(1/cs2 - 1)
 
-def CI_to_sigma(width):
-    """From CI 75% to a sigma value
-    z*sigma = width/2
-    TODO: automate z score so any CI can be taken"""
-    z = 1.15
+def CI_to_sigma(width, CI):
+    """
+    From any given CI to a sigma value.
+    CI: confidence interval percentage (e.g., 75 for 75%)
+    """
+    z = stats.norm.ppf(1 - (1 - 75/100) / 2)
     sig = width/(2*z)
     return(sig)
+
+def generate_samples(n_ceft, cs2_ceft_avg, phi_ceft_sigma):
+    import dickandballs as db
+    import helpers as hel
+
+    cs2_hat, nu_hat, l_hat, X_hat = hel.get_hype_samples()
+
+    kernel = db.Kernel('SE', sigma=nu_hat, l=l_hat)
+
+    n_pqcd, cs2_pqcd = hel.get_pqcd(X_hat, size=100)
+
+    x_train =  np.concatenate((n_ceft, n_pqcd))
+    cs2_train =  np.concatenate((cs2_ceft_avg, cs2_pqcd))
+
+    phi_pqcd_sigma = np.zeros_like(cs2_pqcd)
+    phi_sigma_train = np.concatenate((phi_ceft_sigma, phi_pqcd_sigma))
+    phi_train = hel.get_phi(cs2_train)
+    train_noise = phi_sigma_train**2
+
+    x_test = np.linspace(n_ceft[0], n_pqcd[-1], 200) # number density, starting val is ending val of n crust
+
+
+    gp = db.GP(kernel, hel.get_phi(cs2_hat))
+    gp.fit(x_train, x_test, phi_train, var_f = train_noise, stabilise=True)
+
+    phi_test, sig = gp.posterior()
+
+    return phi_test.flatter()
