@@ -81,4 +81,4 @@ def generate_samples(n_ceft, cs2_ceft_avg, phi_ceft_sigma):
 
     phi_test, sig = gp.posterior()
 
-    return phi_test.flatter()
+    return phi_test.flatten(), x_test
