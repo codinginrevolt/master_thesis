@@ -1,0 +1,19 @@
+[samples]
+# number of samples to generate
+samples_number = 2
+
+# end value of number density until which to do the GPR, units in n_sat
+n_end = 10
+# how many points should the GPR return
+n_points = 20
+
+# Whether to convert phi&n to pressure and energy density
+convert_eos = true
+# Whether to return samples in pressure/energy density only or in phi/numdens too. Only effect if convert_eos set to 'true'
+return_only_eos = true
+
+[output]
+# where to save .npy file
+# phi samples saved with "_phi", pressure-energydensity saved with "_eos"
+directory = "results/phi_samples"
+filename = "loadingtests"
