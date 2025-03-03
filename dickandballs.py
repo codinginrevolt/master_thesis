@@ -145,14 +145,11 @@ class GP:
 
         L, alpha = self._compute_cholesky(K_11, f_tilde)
 
-        v = solve_triangular(L, K_12, lower=True) # delete this comment: 2.1 Line 5
+        v = solve_triangular(L, K_12, lower=True, check_finite=False) # 2.1 Line 5
 
-        # if return_marginal_likelihood:
-        #   self._get_log_likelihood(f_tilde, alpha, L, len(alpha))
-        # no point in getting likelihood here yet
 
-        self.mean_star = mean_test + (K_12.T @ alpha) # delete this comment: 2.1 Line 4
-        self.cov_star = K_22 - (v.T @ v) # delete this comment: 2.1 Line 6
+        self.mean_star = mean_test + (K_12.T @ alpha) # 2.1 Line 4
+        self.cov_star = K_22 - (v.T @ v) # 2.1 Line 6
 
 
 
@@ -226,12 +223,12 @@ class GP:
     def _compute_cholesky(self, K_11: np.ndarray, f: np.ndarray) -> np.ndarray|tuple:
         try:
             # Perform Cholesky decomposition
-            L = cholesky(K_11, lower=True) # delete this comment: 2.1: Line 2
+            L = cholesky(K_11, lower=True, overwrite_a=True, check_finite=False) # delete this comment: 2.1: Line 2
         except Exception as e:
             raise ValueError("The matrix K_11 probably is not semi-positive definite. Using a jitter value (set stabilise=True), or increasing it (default jitter_value=1e-10) can help with numerical stability.") from e
         
         # delete this comment: below is 2.1 Line 3
-        alpha = cho_solve((L,True), f) # cho_solve does A\x (where A = LL.T) as opposed to using solve_triangular to find (L\x) and then (L.T \ (L\x)). L\x is Lx=F
+        alpha = cho_solve((L,True), f, overwrite_b=True, check_finite=False) # cho_solve does A\x (where A = LL.T) as opposed to using solve_triangular to find (L\x) and then (L.T \ (L\x)). L\x is Lx=F
 
         return L, alpha
     
@@ -257,8 +254,7 @@ class EosProperties:
         self.cs2 = None
         self.mu = None
         self.epsilon = None
-        self.pressure1 = None
-        self.pressure2 = None
+        self.pressure = None
 
     def get_cs2(self):
         """ab initio qcd paper, eq 7
@@ -286,17 +282,12 @@ class EosProperties:
         self.epsilon = self.epsi_0 + cumsimp(y=self.mu, x=self.n, initial=self.epsi_0)
         return self.epsilon
 
-    def get_pressure1(self):    
-        """below eq 9"""
-        self.pressure1 = -self.epsilon + self.mu * self.n
-        return self.pressure1
-
-    def get_pressure2(self):
+    def get_pressure(self):
         """Hauke's eq"""
         integrand = self.cs2 * self.mu
         integral = cumsimp(y=integrand, x=self.n, initial=self.p_0)
-        self.pressure2 = self.p_0 + integral
-        return self.pressure2
+        self.pressure = self.p_0 + integral
+        return self.pressure
 
     def get_all(self):
         """
@@ -305,14 +296,13 @@ class EosProperties:
         self.get_cs2()
         self.get_mu()
         self.get_epsilon()
-        self.get_pressure1()
-        self.get_pressure2()
+        self.get_pressure()
+
         # Return all computed values as a dictionary for easy access
         return {
             "cs2": self.cs2,
             "mu": self.mu,
             "epsilon": self.epsilon,
-            "pressure1": self.pressure1,
-            "pressure2": self.pressure2
+            "pressure": self.pressure
         }
     

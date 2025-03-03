@@ -55,7 +55,7 @@ def CI_to_sigma(width, CI):
     sig = width/(2*z)
     return(sig)
 
-def generate_samples(n_ceft, cs2_ceft_avg, phi_ceft_sigma):
+def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, x_test_end=10, point_nums=200):
     import dickandballs as db
     import helpers as hel
 
@@ -73,7 +73,7 @@ def generate_samples(n_ceft, cs2_ceft_avg, phi_ceft_sigma):
     phi_train = hel.get_phi(cs2_train)
     train_noise = phi_sigma_train**2
 
-    x_test = np.linspace(n_ceft[0], n_pqcd[-1], 200) # number density, starting val is ending val of n crust
+    x_test = np.linspace(n_ceft[0], x_test_end, point_nums) # number density, starting val is ending val of n crust, ending val is default 10 nsat
 
 
     gp = db.GP(kernel, hel.get_phi(cs2_hat))
@@ -82,3 +82,56 @@ def generate_samples(n_ceft, cs2_ceft_avg, phi_ceft_sigma):
     phi_test, sig = gp.posterior()
 
     return phi_test.flatten(), x_test
+
+def make_conditioning_eos():
+    ceft_lower= np.loadtxt('EOS/ceft/eos_ceft_lower.dat')
+    n_ceft_lower, p_ceft_lower, e_ceft_lower = ceft_lower.T
+
+    ceft_upper= np.loadtxt('EOS/ceft/eos_ceft_upper.dat')
+    n_ceft_upper, p_ceft_upper, e_ceft_upper = ceft_upper.T
+
+    n_ceft = n_ceft_lower/0.16 #n_sat
+
+    # average CEFT EOS
+    e_ceft = (e_ceft_lower+e_ceft_upper)/2
+    p_ceft = (p_ceft_lower+p_ceft_upper)/2
+
+    # seperating crust
+    n_crust = n_ceft[:111]
+    e_crust = e_ceft[:111]
+    p_crust = p_ceft[:111]
+
+
+    p_ceft_upper = p_ceft_upper[111:]
+    p_ceft_lower = p_ceft_lower[111:]
+
+    e_ceft_upper = e_ceft_upper[111:]
+    e_ceft_lower = e_ceft_lower[111:]
+
+    n_ceft = n_ceft[111:]
+    e_ceft = e_ceft[111:]
+    p_ceft = p_ceft[111:]
+
+    # chemical potential
+    mu_ceft = (e_ceft + p_ceft)/n_ceft
+
+    e_ini = e_ceft[0]
+    p_ini = p_ceft[0]
+    n_ini = n_ceft[0]
+    mu_ini = (e_ini + p_ini) / n_ini
+
+    # sound speed
+    cs2_ceft_lower = np.gradient(p_ceft_lower, e_ceft_lower) #dp/de
+    cs2_ceft_upper = np.gradient(p_ceft_upper, e_ceft_upper) #dp/de
+    cs2_ceft_avg = (cs2_ceft_upper+cs2_ceft_lower)/2
+    cs2_ceft_width = cs2_ceft_upper-cs2_ceft_lower
+    cs2_ceft_sigma = CI_to_sigma(cs2_ceft_width, 75)
+
+    # phi
+    phi_ceft_lower = get_phi(cs2_ceft_lower)
+    phi_ceft_upper = get_phi(cs2_ceft_upper)
+    phi_ceft_width = phi_ceft_upper-phi_ceft_lower
+    phi_ceft_avg = (phi_ceft_upper+phi_ceft_lower)/2
+    phi_ceft_sigma = CI_to_sigma(phi_ceft_width, 75)
+
+    return n_ceft, cs2_ceft_avg, phi_ceft_sigma, e_ini, p_ini, mu_ini
