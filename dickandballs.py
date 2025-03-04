@@ -153,7 +153,7 @@ class GP:
 
 
 
-    def posterior(self, n: int = 1, mu: np.ndarray|float = None, cov: np.ndarray = None) -> tuple[np.ndarray, np.ndarray]:
+    def posterior(self, n: int = 1, mu: np.ndarray|float = None, cov: np.ndarray = None, sampling :bool = False) -> tuple[np.ndarray, np.ndarray]:
         """
         uses covariance metric and mean to produce 1 function from the GP
         input: n samples, optionally mean and cov
@@ -169,6 +169,10 @@ class GP:
 
         rng = np.random.default_rng()
         y = rng.multivariate_normal(mean=mu, cov=cov, size=n)
+
+        if sampling:
+            return y
+        
         sig = np.sqrt(np.diag(self.cov_star))
 
         return y, sig
@@ -237,7 +241,7 @@ class EosProperties:
     """
     Example usage:
     given initial values of epsilon, p, and mu, and n:
-    n = np.array([...])  # Example input for n
+    n = np.array([...])  # Example input for n | must be in nsat
     phi = np.array([...])  # Example input for phi
     eos = EosProperties(mu_0, epsi_0, p_0, n, phi)
     results = eos.get_all()
@@ -249,7 +253,7 @@ class EosProperties:
         self.mu_0 = mu_0
         self.epsi_0 = epsi_0
         self.p_0 = p_0
-        self.n = n
+        self.n = n * 0.16 # fm^-3
         self.phi = phi.flatten()
         self.cs2 = None
         self.mu = None
@@ -268,9 +272,9 @@ class EosProperties:
         mu_0 is in Mev usually so then is mu
         """
         integrand = self.cs2 / self.n
-        integral = cumsimp(y=integrand, x=self.n, initial=np.log(self.mu_0))
+        integral = cumsimp(y=integrand, x=self.n, initial=0)
 
-        self.mu = np.exp(integral) #self.mu_0 * np.exp(integral)
+        self.mu = self.mu_0 * np.exp(integral) #self.mu_0 * np.exp(integral)
 
 
         return self.mu
