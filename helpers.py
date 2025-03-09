@@ -56,7 +56,12 @@ def CI_to_sigma(width, CI):
     sig = width/(2*z)
     return(sig)
 
-def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, x_test_end=10, point_nums=200):
+def check_pqcd_connection(X_hat, e_end, p_end, n_end):
+    weight = (int(pQCD(np.exp(X_hat)).constraints(e0=e_end/1000, p0=p_end/1000, n0=n_end*0.16)))
+    boolean = weight == 1
+    return boolean
+
+def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, x_test_end=10, mu_low = 2.2, mu_high = 2.8, point_nums=200):
     """
     input n must be in nsat, if used in conjunction with make_condition_eos() that is automatically the case
     out n in nsat
@@ -66,7 +71,7 @@ def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, x_test_end=10, point_n
 
     kernel = db.Kernel('SE', sigma=nu_hat, l=l_hat)
 
-    n_pqcd, cs2_pqcd = get_pqcd(X_hat, size=100) # nsat, unitless
+    n_pqcd, cs2_pqcd = get_pqcd(X_hat,mu_low, mu_high, size=100) # nsat, unitless
 
     x_train =  np.concatenate((n_ceft, n_pqcd)) # nsat
     cs2_train =  np.concatenate((cs2_ceft_avg, cs2_pqcd))
@@ -84,7 +89,7 @@ def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, x_test_end=10, point_n
 
     phi_test = gp.posterior(sampling=True)
 
-    return phi_test.flatten(), x_test
+    return phi_test.flatten(), x_test, X_hat
 
 def make_conditioning_eos():
     "returns n in nsat"
@@ -132,3 +137,8 @@ def make_conditioning_eos():
     phi_ceft_sigma = CI_to_sigma(phi_ceft_width, 75)
 
     return n_ceft/0.16, cs2_ceft_avg, phi_ceft_sigma, e_ini, p_ini, mu_ini
+
+def append_eos_results(results_e, results_p, results_cs2, epsilon, pressure, cs2):
+    results_e.append(epsilon)
+    results_p.append(pressure)
+    results_cs2.append(cs2)
