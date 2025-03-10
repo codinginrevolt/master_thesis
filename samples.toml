@@ -1,9 +1,9 @@
 [samples]
 # number of samples to generate
-samples_number = 1
+samples_number = 5000
 
 # end value of number density until which to do the GPR, units in n_sat
-n_end = 25
+n_end = 30
 # how many points should the GPR return
 n_points = 200
 
@@ -27,5 +27,5 @@ return_normscale = true
 [output]
 # where to save .npy file
 # phi samples saved with "_phi", pressure-energydensity saved with "_eos"
-directory = "results/testing"
-filename = "tov"
+directory = "results/eos_samples"
+filename = "30nsConnecting"
