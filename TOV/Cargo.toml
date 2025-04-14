@@ -1,0 +1,13 @@
+[package]
+name = "TOV"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+indicatif = { version = "0.17.11", features = ["rayon"] }
+ndarray = { version = "0.16.1", features = ["rayon"] }
+ndarray-npy = "0.9.1"
+rayon = "1.10.0"
+serde = { version = "1.0.219", features = ["derive"] }
+splines = "4.4.2"
+toml = "0.8.20"

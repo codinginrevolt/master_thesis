@@ -1,4 +1,6 @@
-EOS/eoses
-__pycache__/
-pqcd/
-TOV/
+gpr/__pycache__/
+gpr/pqcd/__pycache__/
+TOV/target
+/tov
+/tov.toml
+!TOV/src/tov.toml
