@@ -3,7 +3,7 @@
 samples_number = 20
 
 # end value of number density until which to do the GPR, units in n_sat
-n_end = 10
+n_end = 25
 # how many points should the GPR return
 n_points = 200
 
@@ -27,5 +27,5 @@ return_normscale = false
 [output]
 # where to save .npy file
 # phi samples saved with "_phi", pressure-energydensity saved with "_eos"
-directory = "results/testing" # leave out last /
-filename = "10" # leave out extension .npy
+directory = "/home/sam/thesis/code/results/testing" # leave out last /
+filename = "25" # leave out extension .npy

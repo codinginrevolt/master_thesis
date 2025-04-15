@@ -4,7 +4,7 @@ import os
 import toml
 from tqdm import tqdm
 
-import eos
+import eos as EOS
 import helpers as hel
 ############################################
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
             phi, n, X_hat = hel.generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_end, mu_start, mu_end, n_points)
 
             if convert_eos:
-                eos = eos.EosProperties(n, phi, epsi_0=e_ini, p_0=p_ini, mu_0=mu_ini)
+                eos = EOS.EosProperties(n, phi, epsi_0=e_ini, p_0=p_ini, mu_0=mu_ini)
                 eos_result = eos.get_all()
 
                 if return_connecting and (hel.check_pqcd_connection(X_hat, eos_result["epsilon"][-1], eos_result["pressure"][-1], n_end)):

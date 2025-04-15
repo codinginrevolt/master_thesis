@@ -13,7 +13,7 @@ use tov::*;
 
 fn main() -> Result<(), Box<dyn Error>> {
 
-    let filepath = "/home/sam/thesis/thesiscode/TOV/src/tov.toml";
+    let filepath = "./tov.toml"; // make sure tov.toml path is correct
 
     let config = load_config(filepath);
     
