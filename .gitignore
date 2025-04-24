@@ -1,7 +1,10 @@
 gpr/__pycache__/
 gpr/pqcd/__pycache__/
 gpr/marginalisation/
+analysis/__pycache__/
 TOV/target
-/tov
-/tov.toml
+tov
+TOV/TOV
+tov.toml
 !TOV/src/tov.toml
+results/
