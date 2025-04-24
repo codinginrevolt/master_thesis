@@ -1,7 +1,7 @@
 # all fields are compulsory
 [input]
-path = "/home/sam/thesis/code/results/testing" # do not include the ending /
-filename = "20ns_SE_eos" # do not include the extension ".npy"
+path = "/home/.../eos_directory" # do not include the ending /
+filename = "eos_filename" # do not include the extension ".npy"
 
 [settings]
 tov_iters = 500 # number of points in  MR/tidal curve
@@ -11,5 +11,5 @@ p_core = 300.0 # in MeV/fm³. only required if kind = "Debug"
 
 [output]
 out_type = "npy" # whether to return mr curves as "npy" file, as a singular "dat" file per eos, or "both"
-path = "/home/sam/thesis/code/results/tov_res" # do not include the ending /
-filename = "20ns_SE" # do not include the extension ".npy" or ".dat"
+path = "/home/.../results_directory" # do not include the ending /
+filename = "filename" # do not include the extension ".npy" or ".dat"
