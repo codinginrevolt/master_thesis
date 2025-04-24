@@ -1,17 +1,15 @@
 # all fields are compulsory
 [input]
-path = "/home/sam/thesis/thesiscode/results/testing" # do not include the ending /
-filename = "10_eos" # do not include the extension ".npy"
+path = "/home/sam/thesis/code/results/testing" # do not include the ending /
+filename = "20ns_SE_eos" # do not include the extension ".npy"
 
 [settings]
 tov_iters = 500 # number of points in  MR/tidal curve
 kind = "Tidal" # "MR" only or including "Tidal". "Debug" returns m(r), p(r), y(r) for p_core
+return_unstable = false # unstable branch returned as well if set to true
 p_core = 300.0 # in MeV/fm³. only required if kind = "Debug"
 
-[profile]
-
-
-
 [output]
-path = "/home/sam/thesis/thesiscode/results/tov_res" # do not include the ending /
-filename = "10_eos" # do not include the extension ".npy"
+out_type = "npy" # whether to return mr curves as "npy" file, as a singular "dat" file per eos, or "both"
+path = "/home/sam/thesis/code/results/tov_res" # do not include the ending /
+filename = "20ns_SE" # do not include the extension ".npy" or ".dat"

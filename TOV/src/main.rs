@@ -28,7 +28,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         TovType::Debug => get_debug_results(edens, pressures, cs2s, &config, &rtol, &atol)?,
     };
 
-    let _ = write_npyfile(results, &config);
-
+    let _ = match config.output.out_type {
+        OutType::npy => write_npyfile(results, &config),
+        OutType::dat => write_datfile(results, &config),
+        OutType::both => {let _ = write_npyfile(results.clone(), &config);
+                        write_datfile(results, &config)},
+    };
+    
     Ok(()) 
 }

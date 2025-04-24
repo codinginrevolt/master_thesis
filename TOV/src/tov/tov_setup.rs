@@ -59,7 +59,7 @@ pub struct TovTidal<'a>{
     m: &'a Array1<f64>,
     p: &'a Array1<f64>,
     eden_spline: Spline<f64, f64>,
-    cs2_spline: Spline<f64, f64>,
+    pub cs2_spline: Spline<f64, f64>,
     pub conversion_to_cgs: ConversionToCGS,
     step: usize,
     substep: usize,
