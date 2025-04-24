@@ -51,8 +51,8 @@ class GP:
 
     def posterior(self, n: int = 1, mu: np.ndarray|float = None, cov: np.ndarray = None, sampling :bool = False) -> tuple[np.ndarray, np.ndarray]:
         """
-        uses covariance metric and mean to produce 1 function from the GP
-        input: n samples, optionally mean and cov
+        uses covariance metric and mean to produce the mean fuction with uncertainty or n function realisations from the GP
+        input: n samples, optionally mean and cov if available from elsewhere 
         """
 
         if mu is None:
@@ -63,12 +63,13 @@ class GP:
         if self.mean_star is None or self.cov_star is None:
             print("Use the fit function first before producing the GP or provide mean and kernel")
 
-        rng = np.random.default_rng()
-        y = rng.multivariate_normal(mean=mu, cov=cov, size=n)
 
         if sampling:
+            rng = np.random.default_rng()
+            y = rng.multivariate_normal(mean=mu, cov=cov, size=n)
             return y
-        
+
+        y = mu.reshape(1,len(mu))
         sig = np.sqrt(np.diag(self.cov_star))
 
         return y, sig
