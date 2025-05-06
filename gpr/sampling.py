@@ -15,7 +15,7 @@ def get_hype_samples():
     nu = rng.normal(1.25, 0.2)
 
     while True:
-        l = rng.normal(1.0, 0.25) # note that std here is different than the ones in the qcd papers
+        l = rng.normal(1.0, 0.5) # note that std here is different than the ones in the qcd papers
         if l>0: break
 
 
@@ -30,7 +30,12 @@ def get_hype_samples():
 
     return cs2_hat, nu, l, X
 
-def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, x_test_end = 10, mu_low = 2.2, mu_high = 2.8, point_nums=200):
+def get_hype_n_ceft_end():
+    rng = np.random.default_rng()
+    nc_hat = rng.uniform(1,2)
+    return nc_hat
+
+def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, x_test_end = 10, mu_low = 2.2, mu_high = 2.8, point_nums=200, ceft_end = 0):
     """
     input n must be in nsat, if used in conjunction with make_condition_eos() that is automatically the case
     out n in nsat
@@ -38,8 +43,21 @@ def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, x_
 
     cs2_hat, nu_hat, l_hat, X_hat = get_hype_samples()
 
-    kernel = kernels.Kernel('SE', sigma=nu_hat, l=l_hat)
+    kernel = kernels.Kernel('SE', sigma=nu_hat**0.5, l=l_hat)
 
+    if ceft_end == 0:
+        n_ceft_end_hat = get_hype_n_ceft_end()
+    else:
+        n_ceft_end_hat = ceft_end
+    
+    idx = np.searchsorted(n_ceft, n_ceft_end_hat)
+    before_or_after = np.argmin([np.abs(n_ceft[idx-1]-n_ceft_end_hat), np.abs(n_ceft[idx]-n_ceft_end_hat)])
+    if before_or_after == 1:
+        idx = idx+1
+    
+    n_ceft = n_ceft[:idx]
+    cs2_ceft_avg = cs2_ceft_avg[:idx]
+    phi_ceft_sigma = phi_ceft_sigma[:idx]
 
     n_pqcd, cs2_pqcd = pp.get_pqcd(X_hat, mu_low, mu_high, size=100) # nsat, unitless
 

@@ -22,7 +22,17 @@ if __name__ == "__main__":
     config = parse_config(raw_config)
 
     print("EOS characteristics:")
-    print(f" Generating {config.samples_n} EOS \n with kernel SE,\n ending at {config.n_end} nsat\n with {config.n_points} points")
+    print(
+    f"Generating {config.samples_n} EOS\n"
+    f"with kernel SE,\n"
+    f"ending at {config.n_end} nsat\n"
+    f"with {config.n_points} points"
+    )
+    if config.n_ceft_end == 0:
+        print(f"Chiral EFT endpoint treated as a hyperparameter.\n")
+    else:
+        print(f"Chiral EFT trusted until {config.n_ceft_end} n_sat.\n")
+        
     print("Output configuration:")
     print(f" EOS will be converted to edens and pressure: {config.convert_eos}.")
     if config.convert_eos:
@@ -41,7 +51,7 @@ if __name__ == "__main__":
     NEOS = 0
     with tqdm(total = config.samples_n) as pbar:
         while NEOS < config.samples_n:
-            phi, n, X_hat = sam.generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, config.n_end, config.mu_start, config.mu_end, config.n_points)
+            phi, n, X_hat = sam.generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, config.n_end, config.mu_start, config.mu_end, config.n_points, config.n_ceft_end)
 
             if config.convert_eos:
                 eos = EOS.EosProperties(n, phi, epsi_0=e_ini, p_0=p_ini, mu_0=mu_ini)
