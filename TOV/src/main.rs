@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         OutType::npy => write_npyfile(results, &config),
         OutType::dat => write_datfile(results, &config),
         OutType::both => {let _ = write_npyfile(results.clone(), &config);
-                        write_datfile(results, &config)},
+                        write_datfile(results, &config)}, 
     };
     
     Ok(()) 

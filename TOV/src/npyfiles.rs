@@ -91,20 +91,34 @@ pub fn write_npyfile(results: Array3<f64>, config: &Config) -> Result<(), Box<dy
 
     let filext: &str = ".npy";
 
-    let full_path = match config.settings.kind {
-        TovType::MR => &format!(
+    let full_path = match (&config.settings.kind, &config.output.out_type){
+        (TovType::MR, OutType::npy) => &format!(
             "{}/{}_mr{}",
             config.output.path, config.output.filename, filext
         ),
-        TovType::Tidal => &format!(
+        (TovType::Tidal, OutType::npy) => &format!(
             "{}/{}_tidal{}",
             config.output.path, config.output.filename, filext
         ),
-        TovType::Debug => &format!(
+        (TovType::Debug, OutType::npy) => &format!(
             "{}/{}_debug{}",
             config.output.path, config.output.filename, filext
         ),
-    };
+
+        (TovType::MR, OutType::both) => &format!(
+            "{}/{}/{}_mr{}",
+            config.output.path, config.output.filename, config.output.filename, filext
+        ),
+        (TovType::Tidal, OutType::both) => &format!(
+            "{}/{}/{}_tidal{}",
+            config.output.path, config.output.filename, config.output.filename, filext
+        ),
+        (TovType::Debug, OutType::both) => &format!(
+            "{}/{}/{}_debug{}",
+            config.output.path, config.output.filename, config.output.filename, filext
+        ),
+        _ => "Not required for .dat files" ,
+        };
 
     write_npy(full_path, &results)?;
 
@@ -125,14 +139,14 @@ pub fn write_datfile(results: Array3<f64>, config: &Config) -> Result<(), Box<dy
         create_dir_all(&save_dir)?;
     }
     for (i, results_slice) in results.axis_iter(Axis(1)).enumerate() {
-        let nan_mask = results_slice.column(1).mapv(|v| !v.is_nan());
+        let nan_mask = results_slice.row(1).mapv(|v| !v.is_nan());
         
         let valid_indices: Vec<_> = nan_mask
             .indexed_iter()
             .filter_map(|(idx, &is_valid)| if is_valid { Some(idx) } else { None })
             .collect();
 
-        let no_nans_results_slice = results_slice.select(Axis(0), &valid_indices);
+        let no_nans_results_slice = results_slice.select(Axis(1), &valid_indices);
 
         let file_path = format!("{}/{}.dat", save_dir, i);
         let mut file = File::create(file_path)?;
