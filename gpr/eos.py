@@ -48,13 +48,13 @@ class EosProperties:
         """eq 9
         MeV * fm^-3
         """
-        self.epsilon = self.epsi_0 + cumsimp(y=self.mu, x=self.n, initial=self.epsi_0)
+        self.epsilon = self.epsi_0 + cumsimp(y=self.mu, x=self.n, initial=0)
         return self.epsilon
 
     def get_pressure(self):
         """Hauke's eq"""
         integrand = self.cs2 * self.mu
-        integral = cumsimp(y=integrand, x=self.n, initial=self.p_0)
+        integral = cumsimp(y=integrand, x=self.n, initial=0)
         self.pressure = self.p_0 + integral
         return self.pressure
 
