@@ -7,6 +7,60 @@ from pathlib import Path
 base_dir = Path(__file__).resolve().parent
 
 
+def get_ceft_p():
+    """
+    Returns:
+    n_ceft in nsat,
+    p_ceft_avg,
+    p_ceft_lower,
+    p_ceft_upper,
+    """        
+    ceft_lower= np.loadtxt(base_dir / 'EOS/ceft/eos_ceft_lower.dat')
+    n_ceft_lower, p_ceft_lower, e_ceft_lower = ceft_lower.T
+
+    ceft_upper= np.loadtxt(base_dir / 'EOS/ceft/eos_ceft_upper.dat')
+    _, p_ceft_upper, e_ceft_upper = ceft_upper.T
+
+
+    n_ceft = n_ceft_lower #fm^-3
+
+    p_ceft = (p_ceft_lower+p_ceft_upper)/2 # MeVfm^-3
+
+    # seperating ceft proper
+    p_ceft_upper = p_ceft_upper[crust_end:]
+    p_ceft_lower = p_ceft_lower[crust_end:]
+
+    p_ceft = p_ceft[crust_end:]
+
+    return n_ceft/ns, p_ceft, p_ceft_lower, p_ceft_upper
+
+def get_ceft_e():
+    """
+    Returns:
+    n_ceft in nsat,
+    e_ceft_avg,
+    e_ceft_lower,
+    e_ceft_upper,
+    """        
+    ceft_lower= np.loadtxt(base_dir / 'EOS/ceft/eos_ceft_lower.dat')
+    n_ceft_lower, p_ceft_lower, e_ceft_lower = ceft_lower.T
+
+    ceft_upper= np.loadtxt(base_dir / 'EOS/ceft/eos_ceft_upper.dat')
+    _, p_ceft_upper, e_ceft_upper = ceft_upper.T
+
+
+    n_ceft = n_ceft_lower #fm^-3
+
+    e_ceft = (e_ceft_lower+e_ceft_upper)/2 # MeVfm^-3 
+
+    e_ceft_upper = e_ceft_upper[crust_end:]
+    e_ceft_lower = e_ceft_lower[crust_end:]
+
+    e_ceft = e_ceft[crust_end:]
+
+    return n_ceft/ns, e_ceft, e_ceft_lower, e_ceft_upper
+
+
 def get_ceft_cs2():
     """
     Returns:
@@ -27,7 +81,6 @@ def get_ceft_cs2():
     cs2_lower = np.gradient(p_ceft_lower, e_ceft_lower) #dp/de
     cs2_upper = np.gradient(p_ceft_upper, e_ceft_upper)
 
-    cs2_avg = (cs2_upper+cs2_lower)/2
 
     e_ceft = (e_ceft_lower+e_ceft_upper)/2 # MeVfm^-3 
     p_ceft = (p_ceft_lower+p_ceft_upper)/2 # MeVfm^-3
@@ -48,7 +101,7 @@ def get_ceft_cs2():
     cs2_ceft_lower = smooth_cs2(n_ceft, cs2_ceft_lower, 6,34,101,134)
     cs2_ceft_upper = cs2_upper[crust_end:] 
     cs2_ceft_upper = smooth_cs2(n_ceft, cs2_ceft_upper, 35,85,95,140)
-    cs2_ceft_avg = cs2_avg[crust_end:]  
+    cs2_ceft_avg = (cs2_ceft_upper+cs2_ceft_lower)/2
 
     return n_ceft/ns, cs2_ceft_avg, cs2_ceft_lower, cs2_ceft_upper
 
@@ -93,7 +146,7 @@ def get_ceft_phi():
     cs2_ceft_lower = smooth_cs2(n_ceft, cs2_ceft_lower, 6,34,101,134)
     cs2_ceft_upper = cs2_upper[crust_end:] 
     cs2_ceft_upper = smooth_cs2(n_ceft, cs2_ceft_upper, 35,85,95,140) 
-    cs2_ceft_avg = cs2_avg[crust_end:]
+    cs2_ceft_avg = (cs2_ceft_upper+cs2_ceft_lower)/2
 
     # phi
     phi_ceft_lower = get_phi(cs2_ceft_lower)

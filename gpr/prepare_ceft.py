@@ -92,7 +92,7 @@ def make_conditioning_eos():
     cs2_ceft_upper = cs2_upper[crust_end:] 
     cs2_ceft_upper = smooth_cs2(n_ceft, cs2_ceft_upper, 35,85,95,140)
 
-    cs2_ceft_avg = cs2_avg[crust_end:]  
+    cs2_ceft_avg = (cs2_ceft_upper+cs2_ceft_lower)/2
 
     # phi
     phi_ceft_lower = get_phi(cs2_ceft_lower)

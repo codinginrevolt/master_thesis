@@ -20,6 +20,10 @@ def get_pqcd(X: float, mu_low: float = 2.2, mu_high:float = 2.8, size: int = 100
 
 
 def check_pqcd_connection(X_hat, e_end, p_end, n_end):
+    """
+    Returns bool signifying is connection to pQCD is possible consistently at a particular renormalisation scale X_hat.
+    Inputs e_end, p_end should be in MeV/fm³, n_end in nsat
+    """
     pqcd_temp = pQCD(X_hat)
     weight = (int(pqcd_temp.constraints(e0=e_end/1000, p0=p_end/1000, n0=n_end*ns)))
     boolean = weight == 1  
