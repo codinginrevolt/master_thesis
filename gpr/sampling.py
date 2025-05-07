@@ -12,38 +12,47 @@ def get_hype_samples():
     """
 
     rng = np.random.default_rng()
-    nu = rng.normal(1.25, 0.2)
 
-    while True:
-        l = rng.normal(1.0, 0.5) # note that std here is different than the ones in the qcd papers
-        if l>0: break
-
+    X = loguniform.rvs(0.5, 2)
 
     while True:
         cs2_hat = rng.normal(0.5, 0.25)
         if 0 <= cs2_hat <= 1:  # sound speed should be between 0 and 1
             break
 
+    nu = rng.normal(1.25, 0.2)
 
-    X = loguniform.rvs(0.5, 2)
+    while True:
+        l = rng.normal(1.0, 0.5) # note that std here is different than the ones in the qcd papers
+        if l>0: break
+
+    alpha = rng.uniform(0.1,10)
 
 
-    return cs2_hat, nu, l, X
+
+    return cs2_hat, X,  nu, l, alpha
 
 def get_hype_n_ceft_end():
     rng = np.random.default_rng()
     nc_hat = rng.uniform(1,2)
     return nc_hat
 
-def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, x_test_end = 10, mu_low = 2.2, mu_high = 2.8, point_nums=200, ceft_end = 0):
+def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, x_test_end = 10, mu_low = 2.2, mu_high = 2.8, point_nums=200, ceft_end = 0, kern = "SE"):
     """
     input n must be in nsat, if used in conjunction with make_condition_eos() that is automatically the case
     out n in nsat
     """
 
-    cs2_hat, nu_hat, l_hat, X_hat = get_hype_samples()
+    cs2_hat, X_hat, nu_hat, l_hat, alpha_hat = get_hype_samples()
 
-    kernel = kernels.Kernel('SE', sigma=nu_hat**0.5, l=l_hat)
+    match kern:
+        case "SE":
+            kernel = kernels.Kernel('SE', sigma=nu_hat**0.5, l=l_hat)
+        case "RQ":
+            kernel = kernels.Kernel('RQ', sigma=nu_hat**0.5, l=l_hat, alpha=alpha_hat)
+        case _:
+            raise ValueError("Invalid kernel value")
+
 
     if ceft_end == 0:
         n_ceft_end_hat = get_hype_n_ceft_end()

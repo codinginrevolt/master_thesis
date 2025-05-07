@@ -3,6 +3,7 @@ import numpy as np
 import os
 import toml
 from tqdm import tqdm
+from multiprocessing import Pool, cpu_count
 
 import eos as EOS
 import sampling as sam
@@ -12,6 +13,48 @@ import append_results as ar
 from config import parse_config
 ############################################
 
+def generate_and_check(config, n_ceft, cs2_ceft_avg, phi_ceft_sigma, e_ini, p_ini, mu_ini, 
+                       n_crust, cs2_crust):
+    
+    import eos as EOS, sampling as sam, prepare_pqcd as pp
+
+    phi, n, X_hat = sam.generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, 
+                                        n_crust, cs2_crust, config.n_end, 
+                                        config.mu_start, config.mu_end, 
+                                        config.n_points, config.n_ceft_end)
+
+
+    result = {
+        "accepted": False,
+        "e": None, "p": None, "cs2": None,
+        "phi": None, "n": None,
+        "Xhat": None
+    }
+
+    if config.convert_eos:
+        eos = EOS.EosProperties(n, phi, epsi_0=e_ini, p_0=p_ini, mu_0=mu_ini)
+        eos_result = eos.get_all()
+
+        if config.return_connecting and not pp.check_pqcd_connection(X_hat, eos_result["epsilon"][-1], eos_result["pressure"][-1], config.n_end):
+            return result  # rejected sample
+
+
+        result["e"], result["p"], result["cs2"] = eos_result["epsilon"], eos_result["pressure"], eos_result["cs2"]
+        result["accepted"] = True
+        if config.return_normscale:
+            result["Xhat"] = X_hat
+        if not config.return_only_eos:
+            result["phi"] = phi
+            result["n"] = n
+    else:
+        result["phi"] = phi
+        result["n"] = n
+        result["accepted"] = True
+
+    return result
+
+def process_sample(args):
+    return generate_and_check(*args)
 
 
 if __name__ == "__main__":
@@ -49,36 +92,34 @@ if __name__ == "__main__":
     results_Xhat = []
 
     NEOS = 0
-    with tqdm(total = config.samples_n) as pbar:
+
+
+    with Pool(processes=cpu_count()) as pool, tqdm(total=config.samples_n) as pbar:
+        NEOS = 0
         while NEOS < config.samples_n:
-            phi, n, X_hat = sam.generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, config.n_end, config.mu_start, config.mu_end, config.n_points, config.n_ceft_end)
 
-            if config.convert_eos:
-                eos = EOS.EosProperties(n, phi, epsi_0=e_ini, p_0=p_ini, mu_0=mu_ini)
-                eos_result = eos.get_all()
+            batch_size = config.samples_n - NEOS
+            args = [(config, n_ceft, cs2_ceft_avg, phi_ceft_sigma, e_ini, p_ini, mu_ini,
+                     n_crust, cs2_crust)] * batch_size
 
-                if config.return_connecting and (pp.check_pqcd_connection(X_hat, eos_result["epsilon"][-1], eos_result["pressure"][-1], config.n_end)):
-                    ar.append_eos_results(results_e, results_p, results_cs2, eos_result["epsilon"], eos_result["pressure"], eos_result["cs2"], e_crust, p_crust, cs2_crust)
+            for result in pool.imap_unordered(process_sample, args):
+                if result["accepted"]:
+                    if config.convert_eos:
+                        ar.append_eos_results(results_e, results_p, results_cs2,
+                                              result["e"], result["p"], result["cs2"],
+                                              e_crust, p_crust, cs2_crust)
+
+                        if config.return_normscale:
+                            results_Xhat.append(result["Xhat"])
+                        if not config.return_only_eos:
+                            ar.append_n_phi(results_n, results_phi, result["n"], result["phi"], n_crust, cs2_crust)
+                    else:
+                        ar.append_n_phi(results_n, results_phi, result["n"], result["phi"], n_crust, cs2_crust)
+
                     NEOS += 1
                     pbar.update(1)
-
-                elif not config.return_connecting:
-                    ar.append_eos_results(results_e, results_p, results_cs2, eos_result["epsilon"], eos_result["pressure"], eos_result["cs2"], e_crust, p_crust, cs2_crust)
-                    NEOS += 1
-                    pbar.update(1)
-
-                if config.return_normscale:
-                    results_Xhat.append(X_hat)
-
-                if not config.return_only_eos:
-                    ar.append_n_phi(results_n, results_phi, n, phi, n_crust, cs2_crust)
-
-            else:
-                ar.append_n_phi(results_n, results_phi, n, phi, n_crust, cs2_crust)
-                NEOS += 1
-                pbar.update(1)
-
-
+                if NEOS >= config.samples_n:
+                    break
 
     # outputting
     os.makedirs(config.save_dir, exist_ok=True)

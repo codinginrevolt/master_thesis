@@ -33,12 +33,18 @@ class Kernel:
         
         if x2 is None:
             x2: np.ndarray = x1
+
+
+        match self.kernel_type:
+            case "SE":
+                covariance_matrix: np.ndarray = self._SE(x1, x2)
+            case "RQ":
+                covariance_matrix: np.ndarray = self._RQ(x1, x2)
+            case _:
+                raise ValueError(f"Unknown kernel type: {self.kernel_type}")
         
-        if self.kernel_type == "SE":
-            covariance_matrix: np.ndarray = self._SE(x1, x2)
-            return covariance_matrix
-        else:
-            raise ValueError(f"Unknown kernel type: {self.kernel_type}")
+        return covariance_matrix
+
         
     @staticmethod
     def visualise_kernel(covmat: np.ndarray, title: str|None = None, annotation: bool = True) -> None:
@@ -59,7 +65,7 @@ class Kernel:
     # defining kernels below
     def _SE(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         """The square exponential covariance function. 
-        Only works for 1D input. And with itself.
+        Only works for 1D input.
         """
 
         # ensure arrays are of shape (n,1)
@@ -73,6 +79,26 @@ class Kernel:
         K: np.ndarray = sigma ** 2 * np.exp(-0.5 * r2 / ( l ** 2))
 
         self.name = "Square Exponential"
+
+        return K
+
+    def _RQ(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+        """The rational quadratic covariance function. 
+        Only works for 1D input.
+        """
+
+        # ensure arrays are of shape (n,1)
+        x1: np.ndarray = self._ensure_shape(x1)
+        x2: np.ndarray = self._ensure_shape(x2)
+        
+        sigma: float = self.params.get("sigma", 1)
+        l: float = self.params.get("l", 1)
+        alpha: float = self.param.get("alpha", 1)
+
+        r2: np.ndarray = cdist(x1, x2, metric='sqeuclidean')
+        K: np.ndarray = sigma ** 2 * (1 + (-0.5 * r2 / ( alpha * (l ** 2))))**(-alpha)
+
+        self.name = "Rational Quadratic"
 
         return K
     

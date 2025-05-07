@@ -3,6 +3,7 @@ from dataclasses import dataclass
 @dataclass
 class SamplingConfig:
     samples_n: int
+    kernel: str
     n_ceft_end: float
     n_end: float
     n_points: int
@@ -47,6 +48,9 @@ def parse_config(raw_config) -> SamplingConfig:
     if s['samples_number'] <= 0:
         raise ValueError("samples_number must be > 0")
     
+    if s['kernel'] not in ("SE", "RQ"):
+        raise ValueError("chosen kernel not implemented yet")
+
     if not ((n_ceft_end == 0.0) or (0.5<=n_ceft_end<=2)):
         raise ValueError("last number density until which to trust chiral eft must be between 0.5 and 2, or set to a hyperparameter.")
 
@@ -74,6 +78,7 @@ def parse_config(raw_config) -> SamplingConfig:
 
     return SamplingConfig(
         samples_n = s['samples_number'],
+        kernel= s['kernel'],
         n_ceft_end = n_ceft_end,
         n_end = n_end,
         n_points = n_points,
