@@ -148,7 +148,7 @@ pub fn write_datfile(results: Array3<f64>, config: &Config) -> Result<(), Box<dy
 
         let no_nans_results_slice = results_slice.select(Axis(1), &valid_indices);
 
-        let file_path = format!("{}/{}.dat", save_dir, i);
+        let file_path = format!("{}/{}.dat", save_dir, i+1);
         let mut file = File::create(file_path)?;
 
         match config.settings.kind {

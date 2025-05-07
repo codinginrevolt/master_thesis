@@ -94,7 +94,7 @@ def save_as_dat(save_dir, tov_pathname, index):
     save_dir.mkdir(parents = True, exist_ok = True)
 
     tov = np.load(tov_pathname)
-    count = 0
+    count = 1
     for i in index:
         slice = tov[:, i, :].T
         non_nan_indices = ~np.isnan(slice).all(axis=1)
