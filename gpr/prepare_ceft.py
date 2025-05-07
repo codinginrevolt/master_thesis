@@ -52,10 +52,8 @@ def make_conditioning_eos():
     n_ceft = n_ceft_lower #fm^-3
 
     cs2_lower = np.gradient(p_ceft_lower, e_ceft_lower) #dp/de
-    cs2_lower = smooth_cs2(n_ceft, cs2_lower, 6,34,101,134) #getting rid of that dips at beginning of ceft
 
     cs2_upper = np.gradient(p_ceft_upper, e_ceft_upper)
-    cs2_upper = smooth_cs2(n_ceft, cs2_upper, 35,85,95,140)
 
     cs2_avg = (cs2_upper+cs2_lower)/2
 

@@ -40,6 +40,7 @@ def parse_config(raw_config) -> SamplingConfig:
         convert_eos = True
         return_only_eos = True
         return_normscale = True
+        return_connecting = False
         n_end = 40
         n_points = 400
 
@@ -54,7 +55,7 @@ def parse_config(raw_config) -> SamplingConfig:
     if not ((n_ceft_end == 0.0) or (0.5<=n_ceft_end<=2)):
         raise ValueError("last number density until which to trust chiral eft must be between 0.5 and 2, or set to a hyperparameter.")
 
-    if s['n_end'] <= 0:
+    if n_end <= 0:
         raise ValueError("n_end must be > 0")
 
     if s['n_points'] <= 0:
