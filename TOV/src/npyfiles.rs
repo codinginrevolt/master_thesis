@@ -40,6 +40,7 @@ pub enum TovType {
 
 #[derive(Deserialize)]
 pub struct Output {
+    pub sort_nmma: bool,
     pub out_type: OutType,
     path: String,
     filename: String,
@@ -168,6 +169,17 @@ pub fn write_datfile(results: Array3<f64>, config: &Config) -> Result<(), Box<dy
         TovType::Tidal => println!(".dat files created in {}/", save_dir),
         TovType::Debug => println!(".dat files created in {}/", save_dir),
     };
+
+    Ok(())
+}
+
+pub fn rewrite_npyfile(results: Array3<f64>, config: &Config) -> Result<(), Box<dyn Error>> {
+    
+    let filext: &str = ".npy";
+    let full_path = format!("{}/{}{}", config.input.path, config.input.filename, filext);
+    
+    write_npy(full_path, &results)?;
+    println!("data overwritten in {}", config.input.filename);
 
     Ok(())
 }

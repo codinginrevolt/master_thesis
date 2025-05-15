@@ -10,6 +10,7 @@ return_unstable = false # unstable branch returned as well if set to true
 p_core = 300.0 # in MeV/fm³. only required if kind = "Debug"
 
 [output]
+sort_nmma = false # whether to sort eos and mr&tidal curve sets in ascending order of lambda_1.4, useful for parameter estimation runs 
 out_type = "npy" # whether to return mr curves as "npy" file, as a singular "dat" file per eos, or "both"
 path = "/home/.../results_directory" # do not include the ending /
 filename = "filename" # do not include the extension ".npy" or ".dat"
