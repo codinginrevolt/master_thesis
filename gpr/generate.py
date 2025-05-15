@@ -125,7 +125,7 @@ if __name__ == "__main__":
     os.makedirs(config.save_dir, exist_ok=True)
 
     if config.convert_eos:
-            save_path_eos = os.path.join(config.save_dir, f"{config.filename}_eos.npy")
+            save_path_eos = os.path.join(config.save_dir, f"{config.filename}.npy")
             final_array_eos = np.array([results_e, results_p, results_cs2])
             np.save(save_path_eos, final_array_eos)
 
@@ -141,8 +141,3 @@ if __name__ == "__main__":
         final_array_phi = np.array([results_n, results_phi])
         np.save(save_path_phi, final_array_phi)
         print(f"Saved EOSes in phi-number density space results to {save_path_phi}")
-
-
-
-
-#TODO: make the script take arguments like the kernel to generate

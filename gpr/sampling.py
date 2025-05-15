@@ -9,6 +9,7 @@ from constants import get_phi
 def get_hype_samples():
     """
     Hyperparams for GP mean and kernel, as well as pqcd renormalisation scale
+    returns cs2_hat, X_hat, sigma_hat, l_hat, alpha_hat
     """
 
     rng = np.random.default_rng()

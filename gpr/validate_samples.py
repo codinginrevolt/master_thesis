@@ -8,7 +8,6 @@ import anal_helpers as anal
 import prepare_pqcd as pp
 from config import parse_config
 
-#TODO: get rid of nans during PT, and 8 columns??
 
 def get_paths():
     this_dir = Path(__file__).parent
