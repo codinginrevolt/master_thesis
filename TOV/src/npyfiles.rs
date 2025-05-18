@@ -80,7 +80,10 @@ pub fn load_npyfile(
 
     let edens: Array2<f64> = data.slice(s![0, .., ..]).to_owned().into_dimensionality()?;
     let pressures: Array2<f64> = data.slice(s![1, .., ..]).to_owned().into_dimensionality()?;
-    let cs2s: Array2<f64> = data.slice(s![2, .., ..]).to_owned().into_dimensionality()?;
+    let cs2s: Array2<f64> = match config.settings.kind{
+        TovType::Tidal | TovType::Debug => data.slice(s![2, .., ..]).to_owned().into_dimensionality()?,
+        TovType::MR => Array2::from_elem((edens.shape()[0],edens.shape()[1]), 0.0),
+    };
     Ok((edens, pressures, cs2s))
 }
 
