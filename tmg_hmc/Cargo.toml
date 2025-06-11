@@ -1,0 +1,16 @@
+[package]
+name = "tmg_hmc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pyo3 = { version = "0.25", features = ["extension-module"] }
+numpy = "0.25"
+nalgebra = "0.33.2"
+rand = "0.9.1"
+rand_distr = "0.5.1"
+ndarray = "0.16.1"
+
+[lib]
+name = "tmg_hmc"
+crate-type = ["cdylib"]
