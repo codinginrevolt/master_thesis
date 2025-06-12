@@ -8,13 +8,13 @@ import prepare_pqcd as pp
 from pathlib import Path
 base_dir = Path(__file__).resolve().parent
 
-def CI_to_sigma(width, CI):
+def CI_to_sigma(width, CI = 75):
     """
     TODO: enable the same from any given CI to a sigma value.
     CI: confidence interval percentage (e.g., 75 for 75%)
     """
-    z = norm.ppf(1 - (1 - 75/100) / 2)
-    sig = width/(2*z)
+    z = norm.ppf(1 - (1 - CI/100) / 2)
+    sig = np.abs(width)/(2*z)
     return(sig)
 
 
@@ -40,7 +40,11 @@ def smooth_cs2(n_ceft, cs2_ceft, a, b, c, d):
 
 
 def make_conditioning_eos():
-    "returns n in nsat"
+    """
+    returns 
+     - n in nsat
+     - cs2_ceft_avg, phi_ceft_sigma, e_ini, p_ini, mu_ini, n_crust/ns, e_crust, p_crust, cs2_crust
+    """
 
     ceft_lower= np.loadtxt(base_dir / 'EOS/ceft/eos_ceft_lower.dat')
     n_ceft_lower, p_ceft_lower, e_ceft_lower = ceft_lower.T

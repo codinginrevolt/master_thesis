@@ -30,18 +30,24 @@ class GP:
         uses algorithm 2.1 from gp book
         returns the mean and covariance metric
         """
-
-        mean_train, mean_test = self._set_means(x1, x2)
+        
+        """ x1_min = np.min(x1)
+        x1_max = np.max(x1)
+        x1 = (x1 - x1_min) / (x1_max-x1_min)
+        x2 = (x2 - x1_min)/ (x1_max-x1_min)
+        self.kernel.params["l"] = (self.kernel.params["l"]  - x1_min)/ (x1_max-x1_min)
+        """
+        
+        mean_train, mean_test = self._set_means(x1, x2) # what happens if the mean_train is set to zero while the mean_train is left with the hyperparam
         K_11, K_12, K_22 = self._set_kernels(x1, x2, var_f, stabilise, jitter_value)
 
         f_tilde = f - mean_train # setting f_tilde to have mean of zero
 
         L, alpha = self._compute_cholesky(K_11, f_tilde)
 
-        v = solve_triangular(L, K_12, lower=True, check_finite=False) # 2.1 Line 5
-
-
         self.mean_star = mean_test + (K_12.T @ alpha) # 2.1 Line 4
+
+        v = solve_triangular(L, K_12, lower=True, check_finite=False) # 2.1 Line 5
         self.cov_star = K_22 - (v.T @ v) # 2.1 Line 6
 
 
@@ -57,7 +63,7 @@ class GP:
         if cov is None:
             cov = self.cov_star
 
-        if cov is None or mu is None:
+        if mu is None and cov is None:
             print("Use the fit function first before producing the GP or provide mean and kernel")
 
 
@@ -123,7 +129,7 @@ class GP:
         else: o_a = False
         try:
             # Perform Cholesky decomposition
-            L = cholesky(K_11, lower=True, overwrite_a=o_a, check_finite=False) # delete this comment: 2.1: Line 2
+            L = cholesky(K_11, lower=True, overwrite_a=o_a, check_finite=False) # algo 2.1: Line 2
         except Exception as e:
             raise ValueError("The matrix K_11 probably is not semi-positive definite. Using a jitter value (set stabilise=True), or increasing it (default jitter_value=1e-10) can help with numerical stability.") from e
         

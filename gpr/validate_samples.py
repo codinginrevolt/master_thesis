@@ -62,7 +62,7 @@ def get_ntov(p_c, p, e, n):
 
     return ntov, etov, ptov
 
-def get_valid_sams(p_c, p, e, Xhats):
+def get_valid_sams(p_c, p, e, Xhats, n_end = 40, n_points=200):
 
     n_end = 40
     n_points = 200

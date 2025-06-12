@@ -33,7 +33,7 @@ def get_hype_samples():
 
     return cs2_hat, X,  nu, l, alpha
 
-def get_hype_n_ceft_end():
+def get_hype_n_ceft_end(): # it was easier to create a new fn than to add it to the one above
     rng = np.random.default_rng()
     nc_hat = rng.uniform(1,2)
     return nc_hat
@@ -61,8 +61,8 @@ def generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, n_crust, cs2_crust, x_
         n_ceft_end_hat = ceft_end
     
     idx = np.searchsorted(n_ceft, n_ceft_end_hat)
-    before_or_after = np.argmin([np.abs(n_ceft[idx-1]-n_ceft_end_hat), np.abs(n_ceft[idx]-n_ceft_end_hat)])
-    if before_or_after == 1:
+    idx_or_before = np.argmin([np.abs(n_ceft[idx-1]-n_ceft_end_hat), np.abs(n_ceft[idx]-n_ceft_end_hat)])
+    if idx_or_before == 1:
         idx = idx+1
     
     n_ceft = n_ceft[:idx]

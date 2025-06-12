@@ -10,9 +10,16 @@ class Kernel:
         Initialize the kernel with a specific type and its hyperparameters.
 
         Parameters:
-        - kernel_type: Type of kernel ('SE' for sqaured exponential, more later).
+        - kernel_type: Type of kernel
+            -- 'SE' for sqaured exponential
+            -- 'RQ' for rational quadratic
+            -- 'Matern32' for Matern 3/2
+            -- 'Matern52' for Matern 5/2
+            -- 'GE' for gamma exponetial
         - kwargs: Hyperparameters for the kernel (e.g. sigma, l). The naming is very specific
-            -- For SE kernel, the arguments must be named 'sigma' and 'l'
+            -- For SE or Matern kernel, the arguments must be named 'sigma' and 'l'
+            -- For RQ kernel, the arguments must be named 'sigma', 'l', and 'alpha'
+            -- For GE kernel, the arguments must be named 'sigma', 'l', and 'gamma'
         """
 
         self.kernel_type: str = kernel_type
@@ -40,6 +47,12 @@ class Kernel:
                 covariance_matrix: np.ndarray = self._SE(x1, x2)
             case "RQ":
                 covariance_matrix: np.ndarray = self._RQ(x1, x2)
+            case "Matern32":
+                covariance_matrix: np.ndarray = self._M32(x1, x2)
+            case "Matern52":
+                covariance_matrix: np.ndarray = self._M52(x1, x2)
+            case "GE":
+                covariance_matrix: np.ndarray = self._GE(x1, x2)
             case _:
                 raise ValueError(f"Unknown kernel type: {self.kernel_type}")
         
@@ -93,12 +106,72 @@ class Kernel:
         
         sigma: float = self.params.get("sigma", 1)
         l: float = self.params.get("l", 1)
-        alpha: float = self.param.get("alpha", 1)
+        alpha: float = self.params.get("alpha", 1)
 
         r2: np.ndarray = cdist(x1, x2, metric='sqeuclidean')
         K: np.ndarray = sigma ** 2 * (1 + (-0.5 * r2 / ( alpha * (l ** 2))))**(-alpha)
 
         self.name = "Rational Quadratic"
+
+        return K
+    
+
+    def _M32(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+        """The Matern 3/2 covariance function. 
+        Only works for 1D input.
+        """
+
+        # ensure arrays are of shape (n,1)
+        x1: np.ndarray = self._ensure_shape(x1)
+        x2: np.ndarray = self._ensure_shape(x2)
+        
+        sigma: float = self.params.get("sigma", 1)
+        l: float = self.params.get("l", 1)
+
+        r: np.ndarray = np.sqrt(cdist(x1, x2, metric='sqeuclidean'))
+        K: np.ndarray = sigma ** 2 * (1 + (np.sqrt(3) * r)/l) * np.exp(- ((np.sqrt(3) * r) /l ))
+
+        self.name = "Matern 3/2"
+
+        return K
+    
+
+    def _M52(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+        """The Matern 5/2 covariance function. 
+        Only works for 1D input.
+        """
+
+        # ensure arrays are of shape (n,1)
+        x1: np.ndarray = self._ensure_shape(x1)
+        x2: np.ndarray = self._ensure_shape(x2)
+        
+        sigma: float = self.params.get("sigma", 1)
+        l: float = self.params.get("l", 1)
+
+        r: np.ndarray = np.sqrt(cdist(x1, x2, metric='sqeuclidean'))
+        K: np.ndarray = sigma ** 2 * (1 + (np.sqrt(5) * r)/l) * np.exp(- ((np.sqrt(5) * r) /l ))
+
+        self.name = "Matern 5/2"
+
+        return K
+    
+    def _GE(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+        """The gamma exponential covariance function. 
+        Only works for 1D input.
+        """
+
+        # ensure arrays are of shape (n,1)
+        x1: np.ndarray = self._ensure_shape(x1)
+        x2: np.ndarray = self._ensure_shape(x2)
+        
+        sigma: float = self.params.get("sigma", 1)
+        l: float = self.params.get("l", 1)
+        gamma: float = self.params.get("gamma", 1)
+
+        r: np.ndarray = np.sqrt(cdist(x1, x2, metric='sqeuclidean'))
+        K: np.ndarray = sigma ** 2 * np.exp(-0.5 * ( r/l)** gamma)
+
+        self.name = "Gamma-Exponential"
 
         return K
     
