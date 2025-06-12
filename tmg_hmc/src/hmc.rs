@@ -1,24 +1,24 @@
-use nalgebra::{DMatrix, DVector};
+use ndarray::{ArrayView1, Array1, Array2, ShapeError};
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rand_distr::{Normal, Distribution};
 use std::f64::consts::PI;
 
-pub struct LinearConstraint {
-    pub f: DVector<f64>,
+pub struct LinearConstraint<'a> {
+    pub f: ArrayView1<'a, f64>,
     pub g: f64,
 }
 
-pub struct HmcSampler {
+pub struct HmcSampler<'a> {
     dim: usize,
     rng: StdRng,
     norm_dist: Normal<f64>,
-    last_sample: DVector<f64>,
-    linear_constraints: Vec<LinearConstraint>,
+    last_sample: Array1<f64>,
+    linear_constraints: Vec<LinearConstraint<'a>>,
 }
 
 
-impl HmcSampler {
+impl<'a> HmcSampler<'a> {
     pub fn new(dim: usize, seed: u64) -> Self {
         let rng = StdRng::seed_from_u64(seed);
         let norm_dist = Normal::new(0.0, 1.0).unwrap();
@@ -26,25 +26,26 @@ impl HmcSampler {
             dim,
             rng,
             norm_dist,
-            last_sample: DVector::zeros(dim),
+            last_sample: Array1::<f64>::zeros(dim),
             linear_constraints: Vec::new(),
         }
     }
-    pub fn set_initial_value(&mut self, initial_value: DVector<f64>){
-        self.last_sample = initial_value;
+    pub fn set_initial_value(&mut self, initial_value: ArrayView1<f64>){
+        self.last_sample = initial_value.to_owned();
     }
 
-    pub fn sample_next(&mut self, return_trace: bool) -> HmcResult {
-        let mut trace_points = DMatrix::<f64>::zeros(self.dim, 0);
-        
+    pub fn sample_next(&mut self, return_trace: bool) -> Result<HmcResult, ShapeError> {
+
         let total_time = PI/2.0;
         let mut b = self.last_sample.clone();
-        let mut a = DVector::<f64>::zeros(self.dim);
+        let mut a = Array1::<f64>::zeros(self.dim);
+
+        let mut trace_points = Array2::<f64>::zeros((0, a.len()));
 
         loop {
             let mut velsign = 0.0;
             for i in 0..self.dim{
-                a[i] = self.norm_dist.sample(&mut self.rng); // init_velcity
+                a[i] = self.norm_dist.sample(&mut self.rng); // init_velocity
             }
 
             let mut time_left = total_time;
@@ -64,15 +65,15 @@ impl HmcSampler {
                 }
                 else {
                     if return_trace{
-                        self.update_trace(&a, &b, &t1, &mut trace_points);
+                        self.update_trace(&a, &b, &t1, &mut trace_points)?;
                     }
                 
                     time_left -= t;
                     let cos_t = t.cos();
                     let sin_t = t.sin();
-                    let new_sample = sin_t*&a + cos_t*&b;
+
                     let hit_vel = cos_t*&a - sin_t*&b;
-                    b = new_sample;
+                    b.assign(&(sin_t*&a + cos_t*&b)); // new sample
 
                     let ql = &self.linear_constraints[cn1];
                     let f2 = (ql.f).dot(&ql.f);
@@ -90,26 +91,26 @@ impl HmcSampler {
 
             let check: f64 = self.verify_constraints(&bb);
             if check>=0.0{
-                self.last_sample=bb;
+                self.last_sample.assign(&bb);
                 
                 if return_trace{
-                    self.update_trace(&a, &b, &time_left, &mut trace_points);
-                    return HmcResult::Trace(trace_points.transpose());
+                self.update_trace(&a, &b, &time_left, &mut trace_points)?;
+                return Ok(HmcResult::Trace(trace_points));
                 }
                 else {
-                    return HmcResult::Sample(self.last_sample.clone());
+                    return Ok(HmcResult::Sample(&self.last_sample));
                 }
             }
         }
     }
 
-    pub fn add_linear_constraint(&mut self, f: DVector<f64>, g: f64){
+    pub fn add_linear_constraint(&mut self, f:  ArrayView1<'a, f64>, g: f64){
         let new_constraint = LinearConstraint{f,g};
         self.linear_constraints.push(new_constraint);
     }
 
 
-    fn get_next_linear_time_hit(&self, a: &DVector<f64>, b: &DVector<f64>) -> (f64, usize){
+    fn get_next_linear_time_hit(&self, a: &Array1<f64>, b: &Array1<f64>) -> (f64, usize){
         let mut hit_time = 0.0;
         let mut cn = 0;
         let min_t = 0.00001;
@@ -161,28 +162,24 @@ impl HmcSampler {
         (hit_time, cn)
     }
 
-    fn update_trace(&self, a: &DVector<f64>, b: &DVector<f64>, t: &f64, trace_points: &mut DMatrix<f64>){
+    fn update_trace(&self, a: &Array1<f64>, b: &Array1<f64>, t: &f64, trace_points: &mut Array2<f64>) -> Result<(), ShapeError> {
         let step_size= 0.01;
         let steps = (t/step_size).floor() as usize;
 
-        let c = trace_points.ncols();
-
-        trace_points.resize_horizontally_mut(c + steps + 1, 0.0);
-
+        
         for i in 0..steps{
             let ang = i as f64 *step_size;
             let bb = ang.sin()*a + ang.cos()*b;
 
-            trace_points.set_column(c+1, &bb);
+            trace_points.push_row(bb.view())?;
+
         }
         let bb = t.sin()*a + t.cos()*b;
-
-        trace_points.set_column(c+1, &bb);
-
-
+        trace_points.push_row(bb.view())?;
+        Ok(())
     }
 
-    fn verify_constraints(&self, bb: &DVector<f64>) -> f64{
+    fn verify_constraints(&self, bb: &Array1<f64>) -> f64{
 
         let mut r = 0.0;
 
@@ -197,7 +194,7 @@ impl HmcSampler {
 
 }
 
-pub enum HmcResult {
-    Sample(DVector<f64>),
-    Trace(DMatrix<f64>),
+pub enum HmcResult<'a> {
+    Sample(&'a Array1<f64>),
+    Trace(Array2<f64>),
 }
