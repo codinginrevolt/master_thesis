@@ -319,7 +319,6 @@ class FDGP:
         """
         Sample from the constrained posterior.
         """
-        start_time = time.time()
         Lam = self.constraints["M"]
         g = self.constraints["g"]
 
@@ -329,16 +328,11 @@ class FDGP:
 
         r = Gamma_inv @ self.mean_star
 
-        mid_time = time.time()
-
-        print(f"Time elapsed before sampling: {mid_time - start_time:.4f} seconds")
         if return_trace:
             samples, traces = tmg(n_samples, M = Gamma_inv, r = r, initial = init_vec, f = Lam, g = g, burn_in = burn_in, checks = False, return_trace = return_trace, seed = seed)
             return samples, traces
         else:
             samples = tmg(n_samples, M = Gamma_inv, r = r, initial = init_vec, f = Lam, g = g, burn_in = burn_in, checks = True, return_trace = return_trace, seed = seed)
-            end_time = time.time()
-            print(f"Time elapsed in total: {end_time - start_time:.4f} seconds")
             return samples
 
     def evaluate(self, x, xi_sample):
@@ -348,7 +342,6 @@ class FDGP:
 
 
 def tmg(n: int, M: np.ndarray, r: np.ndarray, initial, f: np.ndarray , g: np.ndarray , burn_in:int = 30, checks:bool = True, return_trace:bool = False, seed:int = None):
-    start_time = time.time()
 
     M = (M + M.T)/2
     d = M.shape[0]
@@ -380,8 +373,6 @@ def tmg(n: int, M: np.ndarray, r: np.ndarray, initial, f: np.ndarray , g: np.nda
     else:
         raise ValueError("For linear constraints, f must be a matrix and g a vector.")
 
-    mid_time = time.time()
-    print(f"Time elapsed for checks: {mid_time - start_time:.4f} seconds")
 
     if return_trace:
         samples, traces = tmg_hmc.sample(n+burn_in, initial2, numlin, seed, f2, g2, return_trace)
@@ -392,8 +383,6 @@ def tmg(n: int, M: np.ndarray, r: np.ndarray, initial, f: np.ndarray , g: np.nda
 
     else:
         samples = tmg_hmc.sample(n+burn_in, initial2, numlin, seed, f2, g2, return_trace)
-        end_time = time.time()
-        print(f"Time elapsed for calling rust: {end_time - mid_time:.4f} seconds")
         samples = samples[burn_in:, :]
         samples = samples @ R_inv.T + np.tile(Minv_r, (n,1))
         return samples
