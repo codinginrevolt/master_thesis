@@ -35,6 +35,8 @@ impl<'a> HmcSampler<'a> {
     }
 
     pub fn sample_next(&mut self, return_trace: bool) -> Result<HmcResult, ShapeError> {
+        let max_iters = 10000;
+        let mut iter_count = 0;
 
         let total_time = PI/2.0;
         let mut b = self.last_sample.clone();
@@ -54,7 +56,12 @@ impl<'a> HmcSampler<'a> {
             let mut cn1: usize;
 
             loop {
-                
+                iter_count += 1;
+                if iter_count > max_iters {
+                    return Err(ShapeError::from_kind(ndarray::ErrorKind::OutOfBounds));
+                }
+
+
                 (t1, cn1) = self.get_next_linear_time_hit(&a, &b);
 
                 

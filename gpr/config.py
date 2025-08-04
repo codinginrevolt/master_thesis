@@ -23,7 +23,7 @@ def parse_config(raw_config) -> SamplingConfig:
     mu_start = s['mu_start'] if s['mu_start'] != 0.0 else 2.2 #GeV
     mu_end = s['mu_end'] if s['mu_end'] != 0.0 else 2.8
 
-    n_ceft_end = s['n_ceft_end'] if s['n_ceft_end'] != "hyparam" else 0.0
+    n_ceft_end = float(s['n_ceft_end'])
     n_end = s['n_end']
     n_points = s['n_points']
 
@@ -31,10 +31,7 @@ def parse_config(raw_config) -> SamplingConfig:
     convert_eos = s['convert_eos']
     return_only_eos = s['return_only_eos'] if convert_eos else False
     return_connecting = s['return_connecting'] if convert_eos else False
-    return_normscale = s['return_normscale'] if convert_eos else False
-
-    if return_connecting:
-        return_normscale = False  # enforce mutual exclusion
+    return_normscale = s['return_normscale']
 
     if s['n_end'] == "nTOV":
         convert_eos = True
@@ -49,7 +46,7 @@ def parse_config(raw_config) -> SamplingConfig:
     if s['samples_number'] <= 0:
         raise ValueError("samples_number must be > 0")
     
-    if s['kernel'] not in ("SE", "RQ"):
+    if s['kernel'] not in ("SE", "RQ", "M32", "M52", "GE"):
         raise ValueError("chosen kernel not implemented yet")
 
     if not ((n_ceft_end == 0.0) or (0.5<=n_ceft_end<=2)):

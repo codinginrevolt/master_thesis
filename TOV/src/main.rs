@@ -47,9 +47,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             if config.output.sort_nmma == true{
                 let sorted_indices = sort_indices(&results);
                 eos_set = eos_set.select(Axis(1), &sorted_indices);
-                let _ = rewrite_npyfile(eos_set, &config);
+                let _ = rewrite_npyfile(eos_set, &config, &sorted_indices);
                 print!("Sorted ");
                 results = results.select(Axis(1), &sorted_indices);
+            
             }
     }
         _ => ()

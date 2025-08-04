@@ -3,7 +3,7 @@ import numpy as np
 from pqcd.pQCD import pQCD
 from constants import ns
 
-def get_pqcd(X: float, mu_low: float = 2.2, mu_high:float = 2.8, size: int = 100):
+def get_pqcd(X: float, mu_low: float = 2.2, mu_high:float = 3, size: int = 100):
     """
     Retrieve pQCD calculations of number density (in n_sat) and sound speed squared using an X value (renormalisation scale)
     Default mu from 2.2 GeV to 3 GeV

@@ -1,4 +1,4 @@
-use ndarray::{s, Axis, Array2, Array3, ArrayD};
+use ndarray::{s, Axis, Array1, Array2, Array3, ArrayD};
 use ndarray_npy::read_npy;
 use ndarray_npy::write_npy;
 
@@ -176,13 +176,29 @@ pub fn write_datfile(results: Array3<f64>, config: &Config) -> Result<(), Box<dy
     Ok(())
 }
 
-pub fn rewrite_npyfile(results: Array3<f64>, config: &Config) -> Result<(), Box<dyn Error>> {
+pub fn rewrite_npyfile(results: Array3<f64>, config: &Config, sorted_indices: &Vec<usize>) -> Result<(), Box<dyn Error>> {
     
     let filext: &str = ".npy";
     let full_path = format!("{}/{}{}", config.input.path, config.input.filename, filext);
     
     write_npy(full_path, &results)?;
     println!("data overwritten in {}", config.input.filename);
+
+
+    let base = config.input.filename.trim_end_matches("_eos");
+    let extra_files = [
+        format!("{}/{}_nceft_end.npy", config.input.path, base),
+        format!("{}/{}_renormscale.npy", config.input.path, base)
+    ];
+
+    for file in &extra_files {
+        if Path::new(file).exists() {
+            let mut array: Array1<f64> = read_npy(file)?; // loader for 1D npy
+            array = array.select(Axis(0), sorted_indices);
+            write_npy(file, &array)?;
+            println!("Sorted and overwritten: {}", file);
+        }
+    }
 
     Ok(())
 }

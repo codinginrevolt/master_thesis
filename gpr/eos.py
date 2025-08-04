@@ -1,26 +1,52 @@
 import numpy as np
 from scipy.integrate import cumulative_simpson as cumsimp
 
-
 class EosProperties:
     """
+    Inputs:
+     - n (np.ndarray): Array of densities (should be given in units of nuclear saturation density, n_sat). Internally converted to units of fm^-3.
+     - phi (np.ndarray | None): Auxiliary variable used to compute cs2. If provided, cs2 will be calculated from phi. Set phi to None to use cs2 directly.
+     - epsi_0 (float): Initial energy density (in MeV fm^-3).
+     - p_0 (float): Initial pressure (in MeV fm^-3).
+     - mu_0 (float): Initial chemical potential (in MeV).
+     - cs2 (np.ndarray | None, default None): Optional. Speed of sound squared. Must be provided if phi is set to None.
+
     Example usage:
     given initial values of epsilon, p, and mu, and n:
+    ```
     n = np.array([...])  # Example input for n | must be in nsat
     phi = np.array([...])  # Example input for phi
-    eos = EosProperties(mu_0, epsi_0, p_0, n, phi)
-    results = eos.get_all()
-    print(results)
-
-    TODO: make the functions be able to work outside of class, i.e take arguments other than self
+    eos = EosProperties(n, phi, epsi_0, p_0, mu_0)
+    # Access results
+    cs2 = results["cs2"]
+    mu = results["mu"]
+    epsilon = results["epsilon"]
+    pressure = results["pressure"]
+    ```
+    ------------------------------------------------------------
+    Note:
+    If phi is not provided, cs2 must be provided:
+    ```
+    cs2 = np.array([...])
+    eos = EosProperties(n, phi = None, epsi_0, p_0, mu_0, cs2=cs2)
+    ```
     """
-    def __init__(self,  n: np.ndarray, phi: np.ndarray, epsi_0: float, p_0: float, mu_0: float) -> None:
+    def __init__(self,  n: np.ndarray, phi: np.ndarray|None, epsi_0: float, p_0: float, mu_0: float, cs2: np.ndarray|None=None) -> None:
         self.mu_0 = mu_0
         self.epsi_0 = epsi_0
         self.p_0 = p_0
         self.n = n * 0.16 # fm^-3
-        self.phi = phi.flatten()
-        self.cs2 = None
+        
+        if phi is not None:
+            self.phi = phi.flatten()
+            self.cs2 = None
+
+        if phi is None:
+            if cs2 is None:
+                raise ValueError("If phi is set to None, cs2 must be given")
+            self.cs2 = cs2
+            self.phi = None
+
         self.mu = None
         self.epsilon = None
         self.pressure = None
@@ -62,7 +88,8 @@ class EosProperties:
         """
         get all properties in a dictionary at once
         """
-        self.get_cs2()
+        if self.phi is not None:
+            self.get_cs2()
         self.get_mu()
         self.get_epsilon()
         self.get_pressure()

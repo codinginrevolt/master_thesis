@@ -14,9 +14,9 @@ import anal_helpers as anal
 
 
 n_ceft, cs2_ceft, cs2_l, cs2_u = anal.get_ceft_cs2()
-indices0 = np.unique(np.int64(np.geomspace(1, 70, 20)))
+indices0 = np.unique(np.int64(np.geomspace(1, 70, 40))) #20
 indices0 = np.concatenate(([0],indices0))
-indices = np.arange(71, len(n_ceft), 48)
+indices = np.arange(71, len(n_ceft), 12) #48
 indices = np.concatenate((indices0,indices))
 n_ceft = n_ceft[indices]
 cs2_ceft = cs2_ceft[indices]
@@ -253,7 +253,7 @@ def update_cs2(kernel_type, sigma, l, gamma, alpha):
     _, _, _, e_ini, p_ini, mu_ini, _, _, _, _ = pc.make_conditioning_eos()
     fig = go.Figure()
 
-    for i in range(100):
+    for i in range(10):
         cs2_hat, X_hat, _, _, _ = sam.get_hype_samples()
         n_pqcd, cs2_pqcd = pp.get_pqcd(X_hat, size=200)
 
@@ -265,9 +265,7 @@ def update_cs2(kernel_type, sigma, l, gamma, alpha):
         phi_sigma = np.concatenate((phi_ceft_sigma, phi_pqcd_sigma))
         gp = GP(kernel, cs2_hat)
         gp.fit(n, n_test, phi, phi_sigma, stabilise=True)
-        mu, std = gp.posterior()
-        mu = mu.flatten()
-        std = std.flatten()
+
         sample = gp.posterior(n=1, sampling=True)
         eos = EosProperties(n_test, sample, epsi_0=e_ini, p_0=p_ini, mu_0=mu_ini)
         cs2_test = (eos.get_all())["cs2"]

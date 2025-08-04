@@ -90,7 +90,7 @@ impl Factors{
 }
 
 pub struct  ConversionToCGS{
-    pub g_csg: f64, // erg.cm/g²
+    pub g_cgs: f64, // erg.cm/g²
     pub c_cgs: f64, // cm/s²
     eos_nuclear_to_cgs : f64, // erg/cm³
     r_km_to_cm: f64, // cm
@@ -99,14 +99,14 @@ pub struct  ConversionToCGS{
 }
 impl ConversionToCGS{
     pub fn initiate(eos0_cgs: f64) -> Self {
-        let g_csg = 6.67408e-8;
+        let g_cgs = 6.67408e-8;
         let c_cgs: f64 = 2.99792458e10;
         let eos_nuclear_to_cgs= 1.6012766e33;
         let r_km_to_cm = 1.0e5;
         let m_msol_to_g = 1.988435e33;
         let eos0 = eos0_cgs;
 
-        ConversionToCGS{ g_csg, c_cgs, eos_nuclear_to_cgs, r_km_to_cm, m_msol_to_g, eos0}
+        ConversionToCGS{ g_cgs, c_cgs, eos_nuclear_to_cgs, r_km_to_cm, m_msol_to_g, eos0}
     }
 
     pub fn convert_mass_msol_to_cgs(&self, x:f64) -> f64{

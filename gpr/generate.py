@@ -5,7 +5,7 @@ import toml
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 
-import eos as EOS
+import eos
 import sampling as sam
 import prepare_pqcd as pp
 import prepare_ceft as pc
@@ -18,10 +18,10 @@ def generate_and_check(config, n_ceft, cs2_ceft_avg, phi_ceft_sigma, e_ini, p_in
     
     import eos as EOS, sampling as sam, prepare_pqcd as pp
 
-    phi, n, X_hat = sam.generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, 
+    phi, n, X_hat, n_ceft_end_hat = sam.generate_sample(n_ceft, cs2_ceft_avg, phi_ceft_sigma, 
                                         n_crust, cs2_crust, config.n_end, 
                                         config.mu_start, config.mu_end, 
-                                        config.n_points, config.n_ceft_end)
+                                        config.n_points, config.n_ceft_end, config.kernel)
 
 
     result = {
@@ -32,17 +32,18 @@ def generate_and_check(config, n_ceft, cs2_ceft_avg, phi_ceft_sigma, e_ini, p_in
     }
 
     if config.convert_eos:
-        eos = EOS.EosProperties(n, phi, epsi_0=e_ini, p_0=p_ini, mu_0=mu_ini)
-        eos_result = eos.get_all()
+        EOS = eos.EosProperties(n, phi, epsi_0=e_ini, p_0=p_ini, mu_0=mu_ini)
+        eos_result = EOS.get_all()
 
         if config.return_connecting and not pp.check_pqcd_connection(X_hat, eos_result["epsilon"][-1], eos_result["pressure"][-1], config.n_end):
-            return result  # rejected sample
+            return result  # rejected sample, returns empty result
 
 
         result["e"], result["p"], result["cs2"] = eos_result["epsilon"], eos_result["pressure"], eos_result["cs2"]
         result["accepted"] = True
         if config.return_normscale:
             result["Xhat"] = X_hat
+            result["n_ceft_end"] = n_ceft_end_hat
         if not config.return_only_eos:
             result["phi"] = phi
             result["n"] = n
@@ -67,7 +68,7 @@ if __name__ == "__main__":
     print("EOS characteristics:")
     print(
     f"Generating {config.samples_n} EOS\n"
-    f"with kernel SE,\n"
+    f"with kernel {config.kernel},\n"
     f"ending at {config.n_end} nsat\n"
     f"with {config.n_points} points"
     )
@@ -90,6 +91,7 @@ if __name__ == "__main__":
     results_e = []
     results_cs2 = []
     results_Xhat = []
+    results_n_ceft_end = []
 
     NEOS = 0
 
@@ -111,6 +113,7 @@ if __name__ == "__main__":
 
                         if config.return_normscale:
                             results_Xhat.append(result["Xhat"])
+                            results_n_ceft_end.append(result["n_ceft_end"])
                         if not config.return_only_eos:
                             ar.append_n_phi(results_n, results_phi, result["n"], result["phi"], n_crust, cs2_crust)
                     else:
@@ -125,7 +128,7 @@ if __name__ == "__main__":
     os.makedirs(config.save_dir, exist_ok=True)
 
     if config.convert_eos:
-            save_path_eos = os.path.join(config.save_dir, f"{config.filename}.npy")
+            save_path_eos = os.path.join(config.save_dir, f"{config.filename}_eos.npy")
             final_array_eos = np.array([results_e, results_p, results_cs2])
             np.save(save_path_eos, final_array_eos)
 
@@ -133,6 +136,11 @@ if __name__ == "__main__":
                 save_path_Xhat = os.path.join(config.save_dir, f"{config.filename}_renormscale.npy")
                 final_array_Xhat = np.array(results_Xhat)
                 np.save(save_path_Xhat, final_array_Xhat)
+
+                if config.n_ceft_end == 0:
+                    save_path_n_ceft_end = os.path.join(config.save_dir, f"{config.filename}_nceft_end.npy")
+                    final_array_n_ceft_end = np.array(results_n_ceft_end)
+                    np.save(save_path_n_ceft_end, final_array_n_ceft_end)
 
             print(f"Saved {len(results_e)} EOSes in pressure-energy density space results to {save_path_eos}")
 

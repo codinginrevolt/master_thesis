@@ -31,13 +31,6 @@ class GP:
         returns the mean and covariance metric
         """
         
-        """ x1_min = np.min(x1)
-        x1_max = np.max(x1)
-        x1 = (x1 - x1_min) / (x1_max-x1_min)
-        x2 = (x2 - x1_min)/ (x1_max-x1_min)
-        self.kernel.params["l"] = (self.kernel.params["l"]  - x1_min)/ (x1_max-x1_min)
-        """
-        
         mean_train, mean_test = self._set_means(x1, x2) # what happens if the mean_train is set to zero while the mean_train is left with the hyperparam
         K_11, K_12, K_22 = self._set_kernels(x1, x2, var_f, stabilise, jitter_value)
 
@@ -128,7 +121,7 @@ class GP:
         if sampling: o_a = True
         else: o_a = False
         try:
-            # Perform Cholesky decomposition
+            # perform cholesky decomposition
             L = cholesky(K_11, lower=True, overwrite_a=o_a, check_finite=False) # algo 2.1: Line 2
         except Exception as e:
             raise ValueError("The matrix K_11 probably is not semi-positive definite. Using a jitter value (set stabilise=True), or increasing it (default jitter_value=1e-10) can help with numerical stability.") from e

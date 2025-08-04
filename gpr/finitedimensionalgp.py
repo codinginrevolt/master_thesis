@@ -24,8 +24,11 @@ class FDGP:
             m: int| None = None, # number of knots
             knots: np.ndarray| None = None,
             sampling: bool = True,
+            normalise: bool = True,
             ) -> None:
-        
+
+        self.normalise = normalise
+
         self.kernel = kernel
         
         self.x_min = np.min(x_train)
@@ -36,6 +39,8 @@ class FDGP:
         self.y_train = y_train
 
         self.x_test = self._normalise(x_test)
+
+        self.var_f = var_y
  
         self.stabilise = stabilise
         self.jitter_value = jitter_value
@@ -43,28 +48,34 @@ class FDGP:
         self.sampling = sampling
 
         if 'l' in self.kernel.params:
-            self.kernel.params['l'] = self._normalise(self.kernel.params['l'])
+            #self.kernel.params['l'] = self._normalise(self.kernel.params['l'])
+            self.kernel.params['l'] = self.kernel.params['l'] / (self.x_max - self.x_min)
         else:
             raise ValueError("'l' parameter not found in kernel parameters")
 
 
+        self.delta_m = None
+
         if knots is not None:
             self.knots = self._normalise(knots)
-            self.m = len(knots)
+            self.m = len(self.knots)
         else:
             if m is None:
                 raise ValueError("Either supply predefined knots or specify number of knots for uniform placement.")
             self.m = m
-            self.knots = np.linspace(self.x_train[0], self.x_train[-1], m) 
+            self.knots = np.linspace(self.x_train[0], self.x_train[-1], self.m) 
  
-        self.delta_m = 1/(self.m-1)
+            if self.normalise:
+                self.delta_m = 1/(self.m-1)
+            else:
+                self.delta_m = (self.x_train[-1] - self.x_train[0]) / (self.m - 1)                
 
-        self.js = np.arange(0, m, 1)
+        self.js = np.arange(0, self.m, 1)
 
         self.Gamma = self.kernel.compute(self.knots)
-        self.Phi_matrix = self._phi_j(self.js[None,:], self.x_train[:,None])
+        self.Gamma += 1e-4 * np.eye(self.m)  # Add jitter to diagonal of Gamma
 
-        self.PhiGammaPhiT = self._set_kernel(var_y)
+        self.Phi_matrix = np.array([[self._phi_j(j, x) for j in self.js] for x in self.x_train])
 
         if prior_mean is not None: 
             self.prior_mean = prior_mean
@@ -76,68 +87,50 @@ class FDGP:
         self.constraints = None
         self.map = None
         self.cov_star_inverse = None
+        self._chol_MAP = None
 
+    def add_linear_observations(self, rows:np.ndarray, obs:np.ndarray, var_obs:np.ndarray|None = None):
+        """
+        Inputs:
+         - rows: rows of the linear_operator_phi matrix
+         - obs: array containing the observations
+         - var_obs (optional): the variance in the obs
+        Add rows to the Phi matrix and values to the y_train array that consist of other linear operator observations such as derivatives or integrals
+        The rows must already be computed, this just stacks them to Phi
+        """
+        self.Phi_matrix =  np.vstack([self.Phi_matrix, rows])
+        self.y_train = np.concatenate([self.y_train, obs])
 
+        if var_obs is None:
+            var_obs = np.zeros_like(obs)
+        elif isinstance(var_obs, float):
+            var_obs = np.full_like(obs, var_obs)
+        
+        self.var_f = np.concatenate([self.var_f, var_obs])
+    
     def fit(self):
         """
+        kinda useless to call independently but gives the unconstrained FDGP
         uses algorithm 2.1 from the gp book
-        returns the mean and covariance metric
+        sets the mean and covariance metric
         """
 
         f_tilde = self.y_train - self.prior_mean # setting f_tilde to have mean of zero
+
+        self.PhiGammaPhiT = self._set_kernel()
 
         L, alpha = self._compute_cholesky(self.PhiGammaPhiT, f_tilde, self.sampling)
 
         PhiGamma = self.Phi_matrix @ self.Gamma
 
-        v = solve_triangular(L, PhiGamma, lower=True, check_finite=False) # 2.1 Line 5
+        v = solve_triangular(L, PhiGamma, lower=True, check_finite=False) # algo 2.1 Line 5
 
-        self.mean_star = self.prior_mean + (PhiGamma.T @ alpha) # 2.1 Line 4
-        self.cov_star = self.Gamma - (v.T @ v) # 2.1 Line 6
+        self.mean_star = self.prior_mean + (PhiGamma.T @ alpha) # algo 2.1 Line 4
+        self.cov_star = self.Gamma - (v.T @ v) # algo 2.1 Line 6
 
-    def _normalise(self, x):
-        """ 
-        normalised to 0 and 1
-        """
 
-        return (x - self.x_min)/(self.x_max-self.x_min)
 
-    def _phi_j(self, j, x_i):
-        t_j = j * self.delta_m
-        abs_val = np.abs((x_i - t_j)/self.delta_m)
-
-        return np.where(abs_val <= 1, 1 - abs_val, 0)
-        
-
-    def _set_kernel(self, var_f: None|np.ndarray|float= None) -> np.ndarray:
-
-        kern = self.Phi_matrix @ self.Gamma @ (self.Phi_matrix).T
-
-        if var_f is not None:
-            var_f = np.atleast_1d(var_f)
-            kern += (np.eye(len(var_f))*(var_f**2))
-
-        if self.stabilise:
-            # add jitter to the diagonals, helps with numerical stability
-            kern[np.diag_indices_from(kern)] += self.jitter_value
-
-        return kern
-    
-    def _compute_cholesky(self, kern: np.ndarray, f: np.ndarray, sampling: bool = True) -> np.ndarray|tuple:
-        if sampling: o_a = True
-        else: o_a = False
-        try:
-            # Perform Cholesky decomposition
-            L = cholesky(kern, lower=True, overwrite_a=o_a, check_finite=False) # delete this comment: 2.1: Line 2
-        except Exception as e:
-            raise ValueError("The covariance matrix probably is not semi-positive definite. Using a jitter value (set stabilise=True), or increasing it (default jitter_value=1e-10) can help with numerical stability.") from e
-        
-        # algo 2.1 Line 3
-        alpha = cho_solve((L,True), f, overwrite_b=o_a, check_finite=False) # cho_solve does A\x (where A = LL.T) as opposed to using solve_triangular to find (L\x) and then (L.T \ (L\x)). L\x is Lx=F
-
-        return L, alpha
-
-    def compute_MAP(self):
+    def compute_MAP(self,  initial: np.ndarray|None = None):
         """
         Finds the maximum a posterior (MAP) which is the posterior mode.
         Can be thought of as the unconstrained posterior mean shifted to respect the constraints
@@ -149,12 +142,13 @@ class FDGP:
         upper_bound: float 
         """
         if self.mean_star is None:
-            raise ValueError("Fit the unconstrained FDGP first")
+            self.fit()
 
         Gamma_cond = self.cov_star + 1e-8*np.eye(self.cov_star.shape[0])
         L = cholesky(Gamma_cond, lower=True, check_finite=False)
-        self.cov_star_inverse = cho_solve((L,True), np.eye(L.shape[0]), check_finite=False, overwrite_b=True)
-
+        self._chol_MAP = L
+        self.cov_star_inverse = cho_solve((L, True), np.eye(L.shape[0]), check_finite=False)
+        
         def objective(x):
             Gamma_inv_x = cho_solve((L, True), x, check_finite=False)
             return 0.5 * (x.T @ Gamma_inv_x) - (self.mean_star.T @ Gamma_inv_x)
@@ -169,12 +163,17 @@ class FDGP:
 
         constraints = [{'type': 'ineq', 'fun': lambda x: M @ x + g}]
 
+        if initial is None:
+            x0 = self.mean_star.copy()
+        else:
+            x0 = initial.copy()
+
         show_display = not self.sampling
         res = minimize(
             fun=objective,
-            x0=self.mean_star, 
-            method='SLSQP',
+            x0=x0, 
             jac=jacobian,
+            method='SLSQP',
             constraints=constraints,
             options={'disp': show_display}
         )
@@ -183,34 +182,19 @@ class FDGP:
             raise RuntimeError(f"Optimization failed: {res.message}")
 
         self.map = res.x
-        return res.x 
-        
-    def _bounds_lineq_sys(self, m: int|None = None, A:np.ndarray|None = None, l: np.ndarray|float = 0, u:np.ndarray|float = 1, rm_inf: bool = True):
-        if A is None:
-            A = np.eye(m)
-        else:
-            m = A.shape[0]
-        l = np.full(m, l) if np.isscalar(l) else np.array(l)
-        u = np.full(m, u) if np.isscalar(u) else np.array(u)
+        return res.x
 
-        M = np.vstack((A,-A))
-        g = np.concatenate((-l,u))
 
-        if rm_inf and np.any((g == np.inf) | (g == -np.inf)):
-            mask = ~np.isinf(g)
-            M = M[mask]
-            g = g[mask]
-        
-        return {"M":M, "g": g}
-
-    def set_constraints(self, m: int|None = None, A: np.ndarray|None = None, constraint_type: str = 'boundedness', l:float|np.ndarray = -np.inf, u:float|np.ndarray=np.inf, rm_inf: bool = True):
+    def set_constraints(self, constraint_type: str = 'boundedness',  m: int|None = None, A: np.ndarray|None = None, l:float|np.ndarray = -np.inf, u:float|np.ndarray=np.inf, rm_inf: bool = True):
         """
         Constructs a one-sided linear inequality constraint system:
         M x + g ≥ 0
 
         Note that you should specify the arguments names.
+        
+        Also note that if there are more than one type of inequality constraint, store each one and then use `combine_constraints` method.
 
-        Parameters
+        Inputs
         ----------
         m : int or None
             The number of variables. Required for built-in constraints like 'boundedness', 'monotonicity',
@@ -218,6 +202,7 @@ class FDGP:
 
         A : np.ndarray or None
             The constraint matrix. Required only for constraint_type='linear'. Ignored for other constraint types.
+            This matrix is defined as: l <= A <= u
 
         constraint_type : str
             Type of constraint to apply. Must be one of:
@@ -238,7 +223,7 @@ class FDGP:
             Whether to remove constraints that are unbounded on both sides (i.e., -inf < x < inf).
             Default is True.
 
-        Returns
+        Output
         -------
         dict
             containing:
@@ -290,20 +275,20 @@ class FDGP:
             Combine multiple constraint dictionaries (from `set_constraints`) into a single
             constraint system of the form Mx + g ≥  0.
 
-            Parameters
+            Input
             ----------
             *constraint_dicts : dict
                 Any number of constraint dicts (with keys "M" and "g") to be stacked.
 
-            Outcome
+            Result
             -------
             Sets `self.constraints` to the the new combined dictionary.
 
             Example
             -------
             >>> fdgp = finitedimensionalgp.FDGP(kernel, x_train, y_train, x_test, y_noise, y_mean, stabilise = True, m=m, sampling=False)
-            >>> constr1 = fdgp.set_constraints(m, constraint_type='boundedness', l = l, u=u, rm_inf=True)
-            >>> constr2 = fdgp.set_constraints(A, constraint_type='linear', l = l, u=u, rm_inf=True)
+            >>> constr1 = fdgp.set_constraints(constraint_type='boundedness', m, l = l, u=u, rm_inf=True)
+            >>> constr2 = fdgp.set_constraints( constraint_type='linear', A, l = l, u=u, rm_inf=True)
             >>> fdgp.combine_constraints(const1, constr2)
 
             """
@@ -315,9 +300,12 @@ class FDGP:
 
             self.constraints = {"M": M_combined, "g": g_combined}
 
-    def sample_posterior(self, n_samples, burn_in=100, return_trace=False, seed = None):
+
+    def sample_posterior(self, n_samples, burn_in=100, return_trace=False, seed = None) -> tuple|np.ndarray:
         """
         Sample from the constrained posterior.
+
+        If error is "Sampling error: ShapeError/OutOfBounds: out of bounds indexing", then the sampler failed after 10000 iterations and quit.
         """
         Lam = self.constraints["M"]
         g = self.constraints["g"]
@@ -340,6 +328,124 @@ class FDGP:
         return sum(xi_sample[j] * self.phi_funcs[j](x) for j in range(self.m))
 
 
+    def _normalise(self, x):
+        """ 
+        normalised to 0 and 1
+        """
+        if not self.normalise:
+            return x
+        return (x - self.x_min)/(self.x_max - self.x_min)
+
+    def _phi_j(self, j, x_i):
+        if self.delta_m is not None:
+            if self.normalise:
+                t_j = j * self.delta_m
+            else:
+                t_j = self.x_train[0] + j * self.delta_m
+            abs_val = np.abs((x_i - t_j)/self.delta_m)
+            return np.where(abs_val <= 1, 1 - abs_val, 0)
+            
+        else:
+            t_j = self.knots[j]
+
+            if j == 0:
+                t_j_m = np.nan
+            else:
+                t_j_m = self.knots[j-1]
+            
+            if j == self.m-1:
+                t_j_p = np.nan
+            else:
+                t_j_p = self.knots[j+1]
+
+
+            if not np.isnan(t_j_m) and t_j_m <= x_i <= t_j:
+                diff = t_j-t_j_m
+
+                return -2*(x_i-t_j)**3/diff - 3*(x_i-t_j)**2/diff + 1
+
+            elif not np.isnan(t_j_p) and t_j <= x_i <= t_j_p:
+                diff = t_j_p-t_j
+
+                return 2*(x_i-t_j)**3/diff - 3*(x_i-t_j)**2/diff + 1
+
+            else:
+                return 0
+
+    """         else:
+            t_j = self.knots[j]
+
+            if j == 0:
+                t_j_m = np.nan
+            else:
+                t_j_m = self.knots[j-1]
+            
+            if j == self.m-1:
+                t_j_p = np.nan
+            else:
+                t_j_p = self.knots[j+1]
+
+
+            if not np.isnan(t_j_m) and t_j_m <= x_i <= t_j:
+                abs_val = np.abs((x_i-t_j)/(t_j-t_j_m))
+            elif not np.isnan(t_j_p) and t_j <= x_i <= t_j_p:
+                abs_val = np.abs((x_i-t_j)/(t_j_p-t_j))
+            else:
+                abs_val = np.inf
+            return (np.where(abs_val <= 1, 1 - abs_val, 0)) """
+
+        
+        
+
+ 
+    def _set_kernel(self) -> np.ndarray:
+
+        kern = self.Phi_matrix @ self.Gamma @ (self.Phi_matrix).T
+
+        if self.var_f is not None:
+            self.var_f = np.atleast_1d(self.var_f)
+            kern += (np.eye(len(self.var_f))*(self.var_f**2))
+
+        if self.stabilise:
+            # add jitter to the diagonals, helps with numerical stability
+            kern[np.diag_indices_from(kern)] += self.jitter_value
+
+        return kern
+    
+    def _compute_cholesky(self, kern: np.ndarray, f: np.ndarray, sampling: bool = True) -> np.ndarray|tuple:
+        if sampling: o_a = True
+        else: o_a = False
+        try:
+            # perform cholesky decomposition
+            L = cholesky(kern, lower=True, overwrite_a=o_a, check_finite=False) # algo 2.1: Line 2
+        except Exception as e:
+            raise ValueError("The covariance matrix probably is not semi-positive definite. Using a jitter value (set stabilise=True), or increasing it (default jitter_value=1e-10) can help with numerical stability.") from e
+        
+        # algo 2.1 Line 3
+        alpha = cho_solve((L,True), f, overwrite_b=o_a, check_finite=False) # cho_solve does A\x (where A = LL.T) as opposed to using solve_triangular to find (L\x) and then (L.T \ (L\x)). L\x is Lx=F
+
+        return L, alpha
+    
+    def _bounds_lineq_sys(self, m: int|None = None, A:np.ndarray|None = None, l: np.ndarray|float = 0, u:np.ndarray|float = 1, rm_inf: bool = True):
+        if A is None:
+            A = np.eye(m)
+        else:
+            m = A.shape[0]
+        l = np.full(m, l) if np.isscalar(l) else np.array(l)
+        u = np.full(m, u) if np.isscalar(u) else np.array(u)
+
+        M = np.vstack((A,-A))
+        g = np.concatenate((-l,u))
+
+        if rm_inf and np.any((g == np.inf) | (g == -np.inf)):
+            mask = ~np.isinf(g)
+            M = M[mask]
+            g = g[mask]
+        
+        return {"M":M, "g": g}
+    
+
+
 
 def tmg(n: int, M: np.ndarray, r: np.ndarray, initial, f: np.ndarray , g: np.ndarray , burn_in:int = 30, checks:bool = True, return_trace:bool = False, seed:int = None):
 
@@ -359,8 +465,9 @@ def tmg(n: int, M: np.ndarray, r: np.ndarray, initial, f: np.ndarray , g: np.nda
     R = cholesky(M, lower=True, check_finite=False)
     Minv_r = cho_solve((R, True), r)
     R_inv = solve_triangular(R, np.eye(R.shape[0]), lower=True)
-    initial2 = (R@initial) - (r@R_inv)
-
+    #initial2 = (R@initial) - (r@R_inv)
+    initial2 = R @ (initial - Minv_r)   
+    
     if isinstance(f, np.ndarray) and isinstance(g, np.ndarray):
         numlin = f.shape[0]
         if len(g) != numlin or f.shape[1] != d:
@@ -370,6 +477,8 @@ def tmg(n: int, M: np.ndarray, r: np.ndarray, initial, f: np.ndarray , g: np.nda
         
         f2 = f @ R_inv
         g2 = f @ Minv_r + g
+
+
     else:
         raise ValueError("For linear constraints, f must be a matrix and g a vector.")
 

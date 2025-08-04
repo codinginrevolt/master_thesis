@@ -47,9 +47,9 @@ class Kernel:
                 covariance_matrix: np.ndarray = self._SE(x1, x2)
             case "RQ":
                 covariance_matrix: np.ndarray = self._RQ(x1, x2)
-            case "Matern32":
+            case "M32":
                 covariance_matrix: np.ndarray = self._M32(x1, x2)
-            case "Matern52":
+            case "M52":
                 covariance_matrix: np.ndarray = self._M52(x1, x2)
             case "GE":
                 covariance_matrix: np.ndarray = self._GE(x1, x2)
@@ -76,7 +76,7 @@ class Kernel:
 
         
     # defining kernels below
-    def _SE(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+    def _SEr(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         """The square exponential covariance function. 
         Only works for 1D input.
         """
@@ -174,7 +174,23 @@ class Kernel:
         self.name = "Gamma-Exponential"
 
         return K
-    
+    def _SE(self, x1, x2):
+        """
+        Square-exponential using broadcasting
+        """
+        # (n,1)   (m,1)
+        x1 = self._ensure_shape(x1)
+        x2 = self._ensure_shape(x2)
+
+        sigma = self.params.get("sigma", 1.0)
+        l     = self.params.get("l",     1.0)
+
+        # pairwise squared distance  (n,m) via broadcasting
+        r2 = (x1 - x2.T)**2          # no cdist
+
+        K  = sigma**2 * np.exp(-0.5 * r2 / l**2)
+        return K
+
     # utilities
     @staticmethod
     def _ensure_shape(x: np.ndarray) -> np.ndarray:
