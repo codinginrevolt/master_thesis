@@ -14,6 +14,10 @@ pub const fn convert_mass_natural_to_solar(x: f64) -> f64 {
     x / MSOL_TO_KM
 }
 
+pub const fn convert_mass_solar_to_natural(x: f64) -> f64 {
+    x * MSOL_TO_KM
+}
+
 pub const P0_MEVFM3: f64 = 1.0e-6; // MeV/fm3
 
 pub struct Factors{
@@ -64,8 +68,8 @@ impl Factors{
     pub fn scale_radius_to_dimensioneless(&self, r: f64) -> f64 {
         r/self.r0
     }
-    
-    
+
+    #[allow(dead_code)]
     pub fn scale_mass_to_dimensionless(&self, m: f64) -> f64 {
         // from natural units
         m/self.m0
@@ -95,7 +99,7 @@ pub struct  ConversionToCGS{
     eos_nuclear_to_cgs : f64, // erg/cm³
     r_km_to_cm: f64, // cm
     m_msol_to_g: f64, // g
-    eos0: f64,
+    pub eos0: f64,
 }
 impl ConversionToCGS{
     pub fn initiate(eos0_cgs: f64) -> Self {
@@ -118,7 +122,7 @@ impl ConversionToCGS{
     }
 
     pub fn convert_eos_nuc_to_cgs(&self, x:f64) -> f64 {
-        x * self.eos_nuclear_to_cgs / 10.0
+        x * self.eos_nuclear_to_cgs
     }
 
     pub fn convert_radius_cgs_to_nat(&self, x:f64)->f64{

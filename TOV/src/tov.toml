@@ -1,16 +1,23 @@
 # all fields are compulsory
 [input]
-path = "/home/.../eos_directory" # do not include the ending /
-filename = "eos_filename"        # do not include the extension ".npy"
+path = "/home/sam/thesis/code/results/testing/tides" # do not include the ending /
+
+filename = "test_eos" # do not include the extension ".npy"
 
 [settings]
-tov_iters = 500         # number of points in  MR/tidal curve
-kind = "Tidal"          # "MR" only or including "Tidal". "Debug" returns m(r), p(r), y(r) for p_core
+tov_iters = 200 # number of points in  MR/tidal curve
+
+kind = "Tidal" # "MR" only or including "Tidal". "Debug" returns m(r), p(r), y(r) for p_core
+
 return_unstable = false # unstable branch returned as well if set to true
-p_core = 300.0          # in MeV/fm³. only required if kind = "Debug"
+
+p_core = 3.5 # in MeV/fm³. only required if kind = "Debug"
 
 [output]
-sort_nmma = false                    # whether to sort eos and mr&tidal curve sets in ascending order of lambda_1.4, useful for parameter estimation runs
-out_type = "npy"                     # whether to return mr curves as "npy" file, as a singular "dat" file per eos, or "both"
-path = "/home/.../results_directory" # do not include the ending /
-filename = "filename"                # do not include the extension ".npy" or ".dat"
+sort_nmma = true # whether to sort eos and mr/tidal curve sets in ascending order of lambda_1.4, useful for parameter estimation runs
+
+out_type = "npy" # whether to return mr curves as "npy" file, as a singular "dat" file per eos, or "both". Note that if connecting to pQCD at nterm, out_type must be "npy" or "both"
+
+path = "/home/sam/thesis/code/results/testing/tides/" # do not include the ending /
+
+filename = "test" # do not include the extension ".npy". if saving as .dat files, treat this field as the directory name inside of path to save dats in

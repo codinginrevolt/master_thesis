@@ -87,7 +87,7 @@ pub fn get_results_tidal(
                 &mut e_array,
                 &mut p_array,
                 &cs2_array,
-                5.0,
+                2.0,
                 tov_iters,
                 &rtol,
                 &atol,
@@ -132,6 +132,8 @@ pub fn get_debug_results(
         let mut p_array = pressures.row(i).to_owned();
         let cs2_array = cs2s.row(i).to_owned();
 
+        let mut _max_mass_bool = false;
+
         let (radii, masses, ys, pressures) = get_single_pcore(
             &mut e_array,
             &mut p_array,
@@ -142,6 +144,7 @@ pub fn get_debug_results(
                 .expect("Specify core pressure in the toml file."),
             &rtol,
             &atol,
+            &mut _max_mass_bool,
         )?;
 
         let len = masses.len();

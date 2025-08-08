@@ -49,7 +49,7 @@ impl <'a> TovMR {
 
     pub fn tov_stopper(&self, _x: f64, y_next: &Array1<f64>) -> bool {
         // stop at surface
-        y_next[1] < 0.0
+        y_next[1] < self.factors.scale_presssure_to_dimensionless(1.0e-16)
 }
 }
 
@@ -67,7 +67,7 @@ pub struct TovTidal<'a>{
 impl <'a>TovTidal<'a> {
     pub fn initiate (r: &mut Array1<f64>, m: &'a mut Array1<f64>,p: &'a mut Array1<f64>, e: &'a mut Array1<f64>, cs2: &'a Array1<f64>, _tov: &'a TovMR ) -> Self 
     {
-        let conversion_to_cgs = ConversionToCGS::initiate(1.0e10);
+        let conversion_to_cgs = ConversionToCGS::initiate(1.0);
 
         r.mapv_inplace(|x|conversion_to_cgs.convert_radius_nat_to_cgs(x));
         let r_diff: Array1<f64> = r.windows(2)
@@ -114,18 +114,18 @@ impl <'a>TovTidal<'a> {
         let factor = 1.0 / (1.0 - 2.0 * self.conversion_to_cgs.g_cgs * m / (self.conversion_to_cgs.c_cgs.powi(2) * r));
 
         let term1 = 2.0 * PI * 
-            self.conversion_to_cgs.g_cgs / self.conversion_to_cgs.c_cgs.powi(4) * (5.0 * eps + 9.0 * p
-            + (eps + p) / dpde );
+            self.conversion_to_cgs.g_cgs / self.conversion_to_cgs.c_cgs.powi(4) 
+            * self.conversion_to_cgs.eos0 * (5.0 * eps + 9.0 * p + (eps + p) / dpde );
         
         let term2 = 3.0 / r.powi(2);
         
         let term3 = (
             (self.conversion_to_cgs.g_cgs * m / (self.conversion_to_cgs.c_cgs.powi(2) * r.powi(2)))
-            + 4.0 * PI * self.conversion_to_cgs.g_cgs * r * p / self.conversion_to_cgs.c_cgs.powi(4)
+            + 4.0 * PI * self.conversion_to_cgs.g_cgs * r * (self.conversion_to_cgs.eos0*p) / self.conversion_to_cgs.c_cgs.powi(4)
         ).powi(2);
         
         let term4 = -1.0 + self.conversion_to_cgs.g_cgs * m / (self.conversion_to_cgs.c_cgs.powi(2) * r)
-            + 2.0 * PI * self.conversion_to_cgs.g_cgs * r.powi(2) * (eps - p) / self.conversion_to_cgs.c_cgs.powi(4);
+            + 2.0 * PI * self.conversion_to_cgs.g_cgs * r.powi(2) * (self.conversion_to_cgs.eos0 * (eps - p)) / self.conversion_to_cgs.c_cgs.powi(4);
         
         let dbdr = 2.0 * factor * h * ( - term1 + term2 + 2.0 * factor * term3)
             + 2.0 * beta / r * factor * term4;
