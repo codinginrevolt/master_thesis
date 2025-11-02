@@ -16,12 +16,22 @@ use dp_helpers::*;
 
 use ndarray::{Array1, Array2, Axis, concatenate};
 use std::error::Error;
+use std::ops::Mul;
 
-pub const NUM_STAGES_UPDATED: usize = 6; /// k1 through k6 gets updated by fx called, k0 gets assigned k6
 
 pub enum ArrayOrScalar {
     Array(Array1<f64>),
     Scalar(f64),
+}
+impl<'a> Mul<&'a ArrayOrScalar> for f64 {
+    type Output = ArrayOrScalar;
+
+    fn mul(self, rhs: &'a ArrayOrScalar) -> ArrayOrScalar {
+        match rhs {
+            ArrayOrScalar::Array(arr) => ArrayOrScalar::Array(self * arr),
+            ArrayOrScalar::Scalar(val) => ArrayOrScalar::Scalar(self * val),
+        }
+    }
 }
 
 pub fn solve<'a, F>(mut f: F,
@@ -159,7 +169,7 @@ where
     Ok((x_vals, y_vals))
 }
 
-
+#[allow(dead_code)]
 pub fn solve_fixed_step<'a, F>
     (mut f: F,
     mut x: f64, 

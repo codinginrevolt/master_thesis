@@ -33,8 +33,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             Array3::from_elem((3, shape[0], shape[1]), 0.0)},
     };
      
-    let rtol = ArrayOrScalar::Scalar(1e-8_f64);
-    let atol = ArrayOrScalar::Scalar(1e-10_f64);
+    let rtol = ArrayOrScalar::Scalar(1e-10_f64);
+    let atol = ArrayOrScalar::Scalar(1e-12_f64);
 
     let mut results = match config.settings.kind {
         TovType::MR => get_results_mr(edens, pressures, &config, &rtol, &atol)?,

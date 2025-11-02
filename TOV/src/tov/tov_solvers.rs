@@ -19,66 +19,69 @@ pub(crate) fn get_mr_from_eos(
     atol: &ArrayOrScalar,
     config: &Config,
 ) -> Result<(Array1<f64>, Array1<f64>, Array1<f64>), Box<dyn Error>> {
+
     let p_core_end = p_array
-        .last()
-        .expect("Something's wrong with last pressure value in EOS.")
-        .clone();
-    let tov = TovMR::initiate(e_array, p_array);
-
+            .last()
+            .expect("Something's wrong with last pressure value in EOS.")
+            .clone();
+    
     let p_core: Array1<f64> = (Array1::geomspace(p_core_start, p_core_end, tov_iters))
-        .ok_or("Error creating core pressures array")?
-        .mapv_into(|x| tov.factors.scale_presssure_to_dimensionless(x));
+        .ok_or("Error creating core pressures array")?; // in nuclear units
 
-    let derivatives_fx = |r: f64, y: &Array1<f64>| -> Array1<f64> { tov.tov_derivs(r, y) };
-    let stop_fx = |x: f64, y_next: &Array1<f64>| -> bool { tov.tov_stopper(x, y_next) };
+    let cs2_array = Array1::<f64>::ones(p_array.len()); // dummy array, not used in MR solver
+    let tov = TovTide::initiate(e_array, p_array, &cs2_array);
+    let derivatives_fx = |r: f64, y: &Array1<f64>| -> Array1<f64> {tov.tov_derivs(r, y)};
+    let stop_fx = |x: f64, y_next: &Array1<f64>| -> bool {tov.tov_stopper(x, y_next)};
 
-    let mut init_cond = Array1::from(vec![(1e-10_f64), 0.0]);
-
+    let mut init_cond = Array1::from(vec![
+        (1e-10_f64),
+        0.0
+        ]);
+    
     let mut masses: Array1<f64> = Array1::from_elem(tov_iters, f64::NAN);
     let mut radii: Array1<f64> = Array1::from_elem(tov_iters, f64::NAN);
     let mut press_core: Array1<f64> = Array1::from_elem(tov_iters, f64::NAN);
 
-    let max_radius = tov.factors.scale_radius_to_dimensioneless(100.0);
-
+    let max_radius = 100.0;
     let mut last_pos_index: usize = 0;
 
-    for (i, &p_core_value) in p_core.iter().enumerate() {
-        init_cond[1] = p_core_value;
+    let mod_rtol = 1e-3_f64 *  rtol;
+    let mod_atol = 1e-3_f64 *  atol;
 
-        let (r_vals, y_vals) = solve(
+
+    for (i, &p_core_value) in p_core.iter().enumerate() {
+
+        init_cond[1] = convert_eos_nuclear_to_natural(p_core_value);
+
+        let (r_vals, y_vals) =  solve(
             derivatives_fx,
-            tov.factors.scale_radius_to_dimensioneless(1.0e-5),
+            1e-5_f64,
             init_cond.to_owned(),
             max_radius,
-            rtol,
-            atol,
+            &mod_rtol,
+            &mod_atol,
             0,
             0.0,
             Some(Box::new(stop_fx)),
         )?;
 
+
         let final_state = y_vals.index_axis(Axis(0), y_vals.len_of(Axis(0)) - 1);
+        let m: f64 = convert_mass_natural_to_solar(final_state[0]);
 
-        let m: f64 = tov.factors.restore_mass_to_solar(final_state[0]);
 
-/*         if (i != 0) && (m < masses[i - 1]) {
-            break;
-        } */
-
-        let r = tov.factors.restore_radius_to_natural(
-            *r_vals
+        let r = *r_vals
                 .last()
-                .expect("Failed to extract last mass value from radius profile"),
-        );
+                .expect("Failed to extract last radius value from radius profile");
 
         if config.settings.return_unstable{
             masses[i] = m;
             radii[i] = r;
-            press_core[i] = tov.factors.restore_pressure_to_nuclear(p_core_value);    
+            press_core[i] = convert_eos_natural_to_nuclear(p_core_value);    
         } else if (i==0) || (m>masses[last_pos_index]){
             masses[i] = m;
             radii[i] = r;
-            press_core[i] = tov.factors.restore_pressure_to_nuclear(p_core_value);    
+            press_core[i] = convert_eos_natural_to_nuclear(p_core_value);    
             last_pos_index = i;
         }
     }
@@ -88,8 +91,8 @@ pub(crate) fn get_mr_from_eos(
 
 
 pub(crate) fn get_tidal_mr_from_eos(
-    e_array: &mut Array1<f64>,
-    p_array: &mut Array1<f64>,
+    e_array: Array1<f64>,
+    p_array: Array1<f64>,
     cs2_array: &Array1<f64>,
     p_core_start: f64,
     tov_iters: usize,
@@ -169,139 +172,6 @@ pub(crate) fn get_tidal_mr_from_eos(
 
 }
 
-
-/* pub(crate) fn get_tidal_mr_from_eos(
-    e_array: &mut Array1<f64>,
-    p_array: &mut Array1<f64>,
-    cs2_array: &Array1<f64>,
-    p_core_start: f64,
-    tov_iters: usize,
-    rtol: &ArrayOrScalar,
-    atol: &ArrayOrScalar,
-    config: &Config,
-) -> Result<(Array1<f64>, Array1<f64>, Array1<f64>, Array1<f64>), Box<dyn Error>> {
-    let p_core_end = p_array
-        .last()
-        .expect("Something's wrong with last pressure value in EOS.")
-        .clone();
-
-    let tov = TovMR::initiate(e_array, p_array);
-
-    let p_core: Array1<f64> = (Array1::geomspace(p_core_start, p_core_end, tov_iters))
-        .ok_or("Error creating core pressures array")?
-        .mapv_into(|x| tov.factors.scale_presssure_to_dimensionless(x));
-
-    let derivatives_fx = |r: f64, y: &Array1<f64>| -> Array1<f64> { tov.tov_derivs(r, y) };
-    let stop_fx = |x: f64, y_next: &Array1<f64>| -> bool { tov.tov_stopper(x, y_next) };
-
-    let mut init_cond: Array1<f64> = Array1::from(vec![
-        tov.factors.scale_mass_to_dimensionless(1e-12_f64),
-        0.0,
-    ]);
-
-    
-    let mut masses: Array1<f64> = Array1::from_elem(tov_iters, f64::NAN);
-    let mut radii: Array1<f64> = Array1::from_elem(tov_iters, f64::NAN);
-    let mut lamdas: Array1<f64> = Array1::from_elem(tov_iters, f64::NAN);
-    let mut press_core: Array1<f64> = Array1::from_elem(tov_iters, f64::NAN);
-
-    let max_radius = tov.factors.scale_radius_to_dimensioneless(100.0);
-
-    let mut last_pos_index: usize = 0;
-
-    for (i, &p_core_value) in p_core.iter().enumerate() {
-
-        init_cond[1] = p_core_value;
-
-        let (mut r_vals, y_vals) = solve(
-            derivatives_fx,
-            tov.factors.scale_radius_to_dimensioneless(1.0e-2),
-            init_cond.to_owned(),
-            max_radius,
-            rtol,
-            atol,
-            0,
-            0.0,
-            Some(Box::new(stop_fx)),
-        )?;
-
-        let m: f64 = y_vals
-            .column(0)
-            .last()
-            .expect("Could not retrieve last mass from ODE solution.")
-            .clone();
-        let m_sol: f64 = convert_mass_natural_to_solar(m);
-
-        let r = r_vals
-            .last()
-            .expect("Could not retrieve last radius from ODE solver.")
-            .clone(); // this r is in km
-
-        let mut m_profile = y_vals.column(0).mapv(|x| convert_mass_natural_to_solar(x));
-        let mut p_profile = y_vals
-            .column(1)
-            .mapv(|x| (tov.factors.restore_pressure_to_nuclear(x)));
-        let mut e_profile = e_array.mapv(|x| (tov.factors.restore_pressure_to_nuclear(x)));
-
-        let mut tidal = TovTidal::initiate(
-            &mut r_vals,
-            &mut m_profile,
-            &mut p_profile,
-            &mut e_profile,
-            &cs2_array,
-            &tov,
-        );
-
-        let init_cond_tide: Array1<f64> =
-            Array1::from(vec![(r_vals[0].powi(2)), 2.0 * (r_vals[0])]);
-
-        let r_diff = tidal.r_diff.clone();
-
-        let derivatives_tide = |r: f64, y: &Array1<f64>| -> Array1<f64> { tidal.tidal_deriv(r, y) };
-
-        let (_r_vals_tide, y_vals_tide) = solve_fixed_step(
-            derivatives_tide,
-            r_vals[0],
-            init_cond_tide,
-            r_vals.last().unwrap_or(&max_radius).clone(),
-            0,
-            &ArrayOrScalar::Array(r_diff),
-            None,
-        )?;
-
-        let final_state_tidal = y_vals_tide.index_axis(Axis(0), y_vals_tide.len_of(Axis(0)) - 1);
-
-        let h: f64 = final_state_tidal[0];
-        let beta = final_state_tidal[1];
-        let y = r_vals.last().expect("Failed to calculate Y") * beta / h; // the r here is in cm
-
-        let lam = compute_tidal_deformability(m, r, y);
-
-        if config.settings.return_unstable{
-            masses[i] = m_sol;
-            radii[i] = r;
-            lamdas[i] = lam;
-            press_core[i] = tov.factors.restore_pressure_to_nuclear(p_core_value);
-        } else if (i==0) || (m_sol>masses[last_pos_index]){
-            masses[i] = m_sol;
-            radii[i] = r;
-            lamdas[i] = lam;
-            press_core[i] = tov.factors.restore_pressure_to_nuclear(p_core_value);
-            last_pos_index = i;
-        } else {
-            let cs2_core = tidal
-                .cs2_spline
-                .clamped_sample(p_profile[0])
-                .expect("Expected interpolated cs2_core as f64, got None");
-            if cs2_core > CS2_THRESHOLD {
-                break  // break solving if no phase transistion, reached m_tov
-            }
-        }
-        
-    }
-    Ok((radii, masses, lamdas, press_core))
-}
- */
 pub(crate) fn get_single_pcore(
     e_array: &mut Array1<f64>,
     p_array: &mut Array1<f64>,
@@ -311,20 +181,29 @@ pub(crate) fn get_single_pcore(
     atol: &ArrayOrScalar,
     max_mass_bool: &mut bool,
 ) -> Result<(Array1<f64>, Array1<f64>, Array1<f64>, Array1<f64>), Box<dyn Error>> {
-    let tov = TovMR::initiate(e_array, p_array);
-    let derivatives_fx = |r: f64, y: &Array1<f64>| -> Array1<f64> { tov.tov_derivs(r, y) };
-    let stop_fx = |x: f64, y_next: &Array1<f64>| -> bool { tov.tov_stopper(x, y_next) };
+
+    let tov = TovTide::initiate(e_array, p_array, cs2_array);
+    let derivatives_fx = |r: f64, y: &Array1<f64>| -> Array1<f64> {tov.tidal_derivs(r, y)};
+    let stop_fx = |x: f64, y_next: &Array1<f64>| -> bool {tov.tov_stopper(x, y_next)};
 
     let init_cond = Array1::from(vec![
         (1e-10_f64),
-        tov.factors.scale_presssure_to_dimensionless(p_core),
+        convert_eos_nuclear_to_natural(p_core),
+        2.0
     ]);
 
-    let max_radius = tov.factors.scale_radius_to_dimensioneless(100.0);
+    let cs2_core = tov
+                .cs2_spline
+                .clamped_sample(p_core)
+                .expect("Expected interpolated cs2_core as f64, got None");
+    if cs2_core > CS2_THRESHOLD {
+                *max_mass_bool = true;
+            }
 
-    let (mut r_vals, y_vals) = solve(
+    let max_radius = 100.0; // km
+    let (r_vals, y_vals) =  solve(
         derivatives_fx,
-        tov.factors.scale_radius_to_dimensioneless(1.0e-5),
+        1e-5_f64,
         init_cond.to_owned(),
         max_radius,
         rtol,
@@ -334,55 +213,16 @@ pub(crate) fn get_single_pcore(
         Some(Box::new(stop_fx)),
     )?;
 
-    let mut m_profile = y_vals.column(0).mapv(|x| tov.factors.restore_mass_to_solar(x));
-    let mut p_profile = y_vals
-        .column(1)
-        .mapv(|x| (tov.factors.restore_pressure_to_nuclear(x)));
-    let mut e_profile = e_array.mapv(|x| (tov.factors.restore_pressure_to_nuclear(x)));
+    let radius = r_vals;
+    let m_profile = y_vals.column(0)
+                    .mapv(|x| 
+                    convert_mass_natural_to_solar(x));
+    let p_profile = y_vals.column(1)
+                        .mapv(|x|
+                        convert_eos_natural_to_nuclear(x));
+    let y_profile = y_vals.column(2).to_owned();
 
-    let mass = m_profile.clone();
-    let radius = r_vals.mapv(|x| tov.factors.restore_radius_to_natural(x));
-    let pressure = p_profile.clone();
 
-    let mut tidal = TovTidal::initiate(
-        &mut r_vals,
-        &mut m_profile,
-        &mut p_profile,
-        &mut e_profile,
-        &cs2_array,
-        &tov,
-    );
-
-    let cs2_core = tidal
-                .cs2_spline
-                .clamped_sample(tov.factors.scale_presssure_to_dimensionless(p_core))
-                .expect("Expected interpolated cs2_core as f64, got None");
-    if cs2_core > CS2_THRESHOLD {
-                *max_mass_bool = true;
-            }
-
-    let init_cond_tide: Array1<f64> = Array1::from(vec![(r_vals[0].powi(2)), (2.0 * r_vals[0])]);
-
-    let r_diff = tidal.r_diff.clone();
-
-    let derivatives_tide = |r: f64, y: &Array1<f64>| -> Array1<f64> { tidal.tidal_deriv(r, y) };
-
-    let (_r_vals_tide, _y_vals_tide) = solve_fixed_step(
-        derivatives_tide,
-        r_vals[0],
-        init_cond_tide,
-        r_vals.last().unwrap_or(&max_radius).clone(),
-        0,
-        &ArrayOrScalar::Array(r_diff),
-        None,
-    )?;
-
-    let _r = r_vals.mapv(|x| tidal.conversion_to_cgs.convert_radius_cgs_to_nat(x));
-
-    let h = y_vals.column(0).to_owned();
-    let b = y_vals.column(1).to_owned();
-
-    let y_profile = &b * &r_vals / &h;
-
-    Ok((radius, mass, y_profile, pressure)) // (km, msol, dimensionless, MeV/fm³)
+    Ok((radius, m_profile, y_profile, p_profile)) // (km, msol, dimensionless, MeV/fm³)
 }
+

@@ -110,16 +110,16 @@ pub fn write_npyfile(results: Array3<f64>, config: &Config) -> Result<(), Box<dy
         ),
 
         (TovType::MR, OutType::both) => &format!(
-            "{}/{}/{}_mr{}",
-            config.output.path, config.output.filename, config.output.filename, filext
+             "{}/{}_mr{}",
+            config.output.path, config.output.filename, filext
         ),
         (TovType::Tidal, OutType::both) => &format!(
-            "{}/{}/{}_tidal{}",
-            config.output.path, config.output.filename, config.output.filename, filext
+            "{}/{}_tidal{}",
+            config.output.path, config.output.filename, filext
         ),
         (TovType::Debug, OutType::both) => &format!(
-            "{}/{}/{}_debug{}",
-            config.output.path, config.output.filename, config.output.filename, filext
+            "{}/{}_debug{}",
+            config.output.path, config.output.filename, filext
         ),
         _ => "Not required for .dat files" ,
         };

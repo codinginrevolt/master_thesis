@@ -79,13 +79,13 @@ pub fn get_results_tidal(
         .into_par_iter()
         .zip(results.axis_iter_mut(Axis(1)))
         .for_each(|(i, mut result_slice)| {
-            let mut e_array = edens.row(i).to_owned();
-            let mut p_array = pressures.row(i).to_owned();
+            let e_array = edens.row(i).to_owned();
+            let p_array = pressures.row(i).to_owned();
             let cs2_array = cs2s.row(i).to_owned();
 
             let (radii, masses, lambdas, core_pressures) = get_tidal_mr_from_eos(
-                &mut e_array,
-                &mut p_array,
+                e_array,
+                p_array,
                 &cs2_array,
                 2.0,
                 tov_iters,
