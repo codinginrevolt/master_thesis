@@ -6,6 +6,7 @@ channels:
 dependencies:
   - _libgcc_mutex=0.1
   - _openmp_mutex=4.5
+  - _x86_64-microarch-level=3
   - asttokens=2.4.1
   - blas=1.0
   - bottleneck=1.4.2
@@ -13,7 +14,7 @@ dependencies:
   - brotli-bin=1.0.9
   - bzip2=1.0.8
   - c-ares=1.19.1
-  - ca-certificates=2024.9.24
+  - ca-certificates=2025.10.5
   - comm=0.2.2
   - contourpy=1.2.0
   - cycler=0.11.0
@@ -29,14 +30,14 @@ dependencies:
   - freetype=2.12.1
   - glib=2.78.4
   - glib-tools=2.78.4
-  - gmp=6.2.1
+  - gmp=6.3.0
   - gmpy2=2.1.2
   - gst-plugins-base=1.14.1
   - gstreamer=1.14.1
   - icu=73.1
   - importlib-metadata=8.5.0
-  - intel-openmp=2023.1.0
-  - ipykernel=6.29.5
+  - intel-openmp=2021.4.0
+  - ipykernel=7.0.1
   - ipython=8.29.0
   - jedi=0.19.2
   - joblib=1.4.2
@@ -49,34 +50,54 @@ dependencies:
   - ld_impl_linux-64=2.40
   - lerc=3.0
   - libabseil=20240116.2
+  - libamd=3.3.3
+  - libblas=3.9.0
   - libbrotlicommon=1.0.9
   - libbrotlidec=1.0.9
   - libbrotlienc=1.0.9
+  - libbtf=2.3.2
+  - libcamd=3.3.3
+  - libcblas=3.9.0
+  - libccolamd=3.3.4
+  - libcholmod=5.3.1
   - libclang=14.0.6
   - libclang13=14.0.6
+  - libcolamd=3.3.4
   - libcups=2.4.2
   - libcurl=8.9.1
+  - libcxsparse=4.4.1
   - libdeflate=1.17
   - libedit=3.1.20230828
   - libev=4.33
   - libffi=3.4.4
   - libgcc=14.2.0
   - libgcc-ng=14.2.0
-  - libgfortran-ng=11.2.0
-  - libgfortran5=11.2.0
+  - libgfortran=14.2.0
+  - libgfortran-ng=14.2.0
+  - libgfortran5=14.2.0
   - libglib=2.78.4
   - libgomp=14.2.0
   - libiconv=1.16
+  - libklu=2.3.5
+  - liblapack=3.9.0
+  - libldl=3.3.2
   - libllvm14=14.0.6
   - libnghttp2=1.57.0
+  - libopenblas=0.3.30
+  - libparu=1.0.0
   - libpng=1.6.39
   - libpq=17.0
   - libprotobuf=4.25.3
+  - librbio=4.3.4
   - libsodium=1.0.18
+  - libspex=3.2.3
+  - libspqr=4.3.4
   - libssh2=1.11.0
   - libstdcxx=14.2.0
-  - libstdcxx-ng=11.2.0
+  - libstdcxx-ng=14.2.0
+  - libsuitesparseconfig=7.10.1
   - libtiff=4.5.1
+  - libumfpack=6.3.5
   - libuuid=1.41.5
   - libwebp-base=1.3.2
   - libxcb=1.15
@@ -86,22 +107,23 @@ dependencies:
   - matplotlib=3.9.2
   - matplotlib-base=3.9.2
   - matplotlib-inline=0.1.7
-  - mkl=2023.1.0
+  - metis=5.1.0
+  - mkl=2021.4.0
   - mkl-service=2.4.0
-  - mkl_fft=1.3.11
-  - mkl_random=1.2.8
+  - mkl_fft=1.3.1
+  - mkl_random=1.2.2
   - mpc=1.1.0
-  - mpfr=4.0.2
+  - mpfr=4.2.1
   - mpmath=1.3.0
   - mysql=8.4.0
   - ncurses=6.4
   - nest-asyncio=1.6.0
-  - numexpr=2.10.1
+  - numexpr=2.11.0
   - numpy=1.26.4
   - numpy-base=1.26.4
   - openjpeg=2.5.2
   - openldap=2.6.4
-  - openssl=3.4.0
+  - openssl=3.5.4
   - packaging=24.1
   - pandas=2.2.2
   - parso=0.8.4
@@ -129,18 +151,18 @@ dependencies:
   - qt-main=5.15.2
   - readline=8.2
   - scikit-learn=1.5.1
-  - scipy=1.14.1
+  - scipy=1.15.3
   - seaborn=0.13.2
   - setuptools=75.1.0
   - sip=6.7.12
   - six=1.16.0
   - sqlite=3.45.3
   - stack_data=0.6.2
-  - sympy=1.13.2
+  - suitesparse=7.10.1
+  - sympy=1.14.0
   - tbb=2021.8.0
   - threadpoolctl=3.5.0
   - tk=8.6.14
-  - tomli=2.0.1
   - tornado=6.4.1
   - traitlets=5.14.3
   - typing_extensions=4.12.2
@@ -154,8 +176,74 @@ dependencies:
   - zlib=1.2.13
   - zstd=1.5.6
   - pip:
+      - annotated-types==0.7.0
+      - anyio==4.9.0
+      - appdirs==1.4.4
+      - aquarel==0.0.7
+      - black==25.9.0
+      - blinker==1.9.0
+      - certifi==2025.4.26
+      - charset-normalizer==3.4.2
+      - choreographer==1.0.9
+      - clarabel==0.11.1
+      - click==8.2.1
+      - cmasher==1.9.2
+      - cmeel==0.57.3
+      - cobra==0.29.1
+      - colorspacious==1.1.2
       - corner==2.2.3
+      - cvxpy==1.6.6
+      - cython==3.1.2
+      - dash==3.0.4
+      - depinfo==2.2.0
+      - diskcache==5.6.3
+      - flask==3.0.3
+      - future==1.0.0
+      - h11==0.16.0
+      - highsbox==1.11.0
+      - httpcore==1.0.9
+      - httpx==0.28.1
+      - idna==3.10
+      - importlib-resources==6.5.2
+      - itsdangerous==2.2.0
+      - jinja2==3.1.6
+      - kaleido==1.0.0
       - llvmlite==0.44.0
+      - logistro==1.1.0
+      - markdown-it-py==3.0.0
+      - markupsafe==3.0.3
+      - maturin==1.8.6
+      - mdurl==0.1.2
+      - mypy-extensions==1.1.0
+      - narwhals==1.41.0
+      - networkx==3.4.2
+      - optlang==1.8.3
+      - orjson==3.10.18
+      - osqp==1.0.4
+      - pathspec==0.12.1
+      - piqp==0.6.0
+      - plotly==6.1.2
+      - proxsuite==0.7.2
+      - pyarrow==20.0.0
+      - pydantic==2.11.7
+      - pydantic-core==2.33.2
+      - pyoptinterface==0.4.1
+      - python-libsbml==5.20.5
+      - pytokens==0.2.0
+      - requests==2.32.3
+      - retrying==1.3.4
+      - rich==14.0.0
+      - ruamel-yaml==0.18.14
+      - ruamel-yaml-clib==0.2.12
+      - scs==3.2.7.post2
+      - simplejson==3.20.1
+      - sniffio==1.3.1
+      - sparseqr==1.4.1
+      - swiglpk==5.0.12
+      - tmg-hmc==0.1.0
       - toml==0.10.2
+      - tomli==2.2.1
       - tqdm==4.67.1
-prefix: /home/sam/anaconda3/envs/thesis
+      - typing-inspection==0.4.1
+      - urllib3==2.4.0
+      - werkzeug==3.0.6

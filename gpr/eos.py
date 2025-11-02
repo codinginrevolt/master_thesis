@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import cumulative_simpson as cumsimp
 
+
 class EosProperties:
     """
     Inputs:
@@ -31,12 +32,21 @@ class EosProperties:
     eos = EosProperties(n, phi = None, epsi_0, p_0, mu_0, cs2=cs2)
     ```
     """
-    def __init__(self,  n: np.ndarray, phi: np.ndarray|None, epsi_0: float, p_0: float, mu_0: float, cs2: np.ndarray|None=None) -> None:
+
+    def __init__(
+        self,
+        n: np.ndarray,
+        phi: np.ndarray | None,
+        epsi_0: float,
+        p_0: float,
+        mu_0: float,
+        cs2: np.ndarray | None = None,
+    ) -> None:
         self.mu_0 = mu_0
         self.epsi_0 = epsi_0
         self.p_0 = p_0
-        self.n = n * 0.16 # fm^-3
-        
+        self.n = n * 0.16  # fm^-3
+
         if phi is not None:
             self.phi = phi.flatten()
             self.cs2 = None
@@ -65,8 +75,7 @@ class EosProperties:
         integrand = self.cs2 / self.n
         integral = cumsimp(y=integrand, x=self.n, initial=0)
 
-        self.mu = self.mu_0 * np.exp(integral) #self.mu_0 * np.exp(integral)
-
+        self.mu = self.mu_0 * np.exp(integral)  # self.mu_0 * np.exp(integral)
 
         return self.mu
 
@@ -87,6 +96,8 @@ class EosProperties:
     def get_all(self):
         """
         get all properties in a dictionary at once
+        cs2, mu, epsilon, pressure
+
         """
         if self.phi is not None:
             self.get_cs2()
@@ -99,5 +110,5 @@ class EosProperties:
             "cs2": self.cs2,
             "mu": self.mu,
             "epsilon": self.epsilon,
-            "pressure": self.pressure
+            "pressure": self.pressure,
         }
