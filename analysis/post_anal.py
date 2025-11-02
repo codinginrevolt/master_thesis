@@ -4,17 +4,32 @@ import pandas as pd
 
 def load_eos_data(folder_name):
     eos_file = f"/home/sam/thesis/code/results/eos_samples/{folder_name}/{folder_name}_eos.npy"
-    eos = np.load(eos_file)
+
+    try:
+        eos = np.load(eos_file)
+
+    except FileNotFoundError:
+        try:
+            mr_file = f"/home/sam/thesis/code/results/tov_res/{folder_name}_tidal.npy"
+            print(f"EoS file not found: {eos_file}")
+            return None, mr
+        except FileNotFoundError:
+            print(f"EoS or MRL file not found: {mr_file}")
+            return None, None
 
     mr_file = f"/home/sam/thesis/code/results/tov_res/{folder_name}_tidal.npy"
-    mr = np.load(mr_file)
+    try:
+        mr = np.load(mr_file)
+    except FileNotFoundError:
+        print(f"MRL file not found: {mr_file}")
+        return eos, None
 
     return eos, mr
 
 def load_results(folder_name):
     eos, mr = load_eos_data(folder_name)
 
-    filepath = f"/home/sam/thesis/code/results/nmma/{folder_name}/GW170817_samples.parquet"
+    filepath = f"/home/sam/thesis/code/results/nmma/{folder_name}/result/GW170817_samples.parquet"
 
     try:
         df = pd.read_parquet(filepath)
@@ -44,14 +59,16 @@ def additional_columns(dataframe, eos, mr):
     r_14, pc_14, ec_14 = one_point_four(r, m, press_cent, edens, press)
     m1, m2 = component_masses(dataframe["chirp_mass"], dataframe["mass_ratio"])
     tide1, tide2 = component_tidal_deformability(tide_from_valid_eos, m_from_valid_eos, m1, m2)
+    lam_tilde = lambda_tilde(m1, m2, tide1, tide2)
 
     dataframe["r_1.4"] = r_14[valid_eos]
-    dataframe["pc_1.4"] = pc_14[valid_eos]
+    dataframe["pc_1.4"] = pc_14[valid_eos] # c for center
     dataframe["ec_1.4"] = ec_14[valid_eos]
     dataframe["m1"] = m1
     dataframe["m2"] = m2
     dataframe["tide1"] = tide1
     dataframe["tide2"] = tide2
+    dataframe["lam_tilde"] = lam_tilde
 
 
 def one_point_four(r, m, press_cent, edens, press):
@@ -115,6 +132,14 @@ def component_tidal_deformability(tide, m, m1, m2):
             tide1.append(np.nan)
             tide2.append(np.nan)
     return tide1, tide2 
+
+def lambda_tilde(m1, m2, tide1, tide2):
+    const = 16/13
+    numer1 = (m1 + 12*m2) * m1**4 * tide1
+    numer2 = (m2 + 12*m1) * m2**4 * tide2
+    denom = (m1 + m2)**5
+    lam_tilde = const * (numer1 + numer2) / denom
+    return lam_tilde
 
 def get_valid_eos(df):
     valid_eos = []
