@@ -36,11 +36,11 @@ def get_hype_samples(kern: str | None = None):
             l = rng.uniform(0.5, 1.5)
             alpha = rng.uniform(0.1, 10)
         case "M32":
-            l = rng.uniform(1.914, 2.552)  # default (0.580, 1.914)
+            l = rng.uniform(0.580, 1.914)  # default (0.580, 1.914) ; high: (1.914, 2.552) 
         case "M52":
-            l = rng.uniform(1.742, 2.322)  # default (0.638,1.742)
+            l = rng.uniform(0.638, 1.742)  # default (0.638,1.742) ; high: (1.742,2.322)
         case "GE":
-            l = rng.uniform(2.14, 3.084)  # default (0.713, 2.310)
+            l = rng.uniform(0.713, 2.310)  # default (0.713, 2.310) ; high: (2.14, 3.084)
             alpha = rng.uniform(1.6, 1.95)
 
     return cs2_hat, X, nu, l, alpha
