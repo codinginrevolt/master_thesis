@@ -55,6 +55,7 @@ def generate_and_check(
         config.n_points,
         config.n_ceft_end,
         config.kernel,
+        #burn_in=800 #for the ones in Jarvis
     )
 
     elif config.use_mu_obs:
@@ -71,6 +72,7 @@ def generate_and_check(
             config.n_points,
             config.n_ceft_end,
             config.kernel,
+            #burn_in=800 #for the ones in Jarvis
         )
 
     else:
@@ -200,7 +202,6 @@ if __name__ == "__main__":
     NEOS = 0
 
     with Pool(processes=cpu_count()) as pool, tqdm(total=config.samples_n) as pbar:
-        NEOS = 0
         while NEOS < config.samples_n:
 
             batch_size = config.samples_n - NEOS

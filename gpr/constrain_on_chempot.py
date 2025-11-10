@@ -6,7 +6,7 @@ import prepare_ceft as pc
 import prepare_pqcd as pp
 from kernels import Kernel
 from constrainedgp import CGP
-
+from constants import ns
 
 # despite the name of this file, it also contains bounded 0<=cs2<=1 constraints only too
 
@@ -88,7 +88,7 @@ def custom_build_w_vector(
 
     K_ss = cgp._set_K_11(
         cgp.x_train, var_f=cgp.var_f, stabilise=True, jitter_value=cgp.jitter
-    )  # training cov + noise if any
+    ) 
     K_1i = cgp.kernel.compute(cgp.x_train, n_int)
     K_ii_prior = cgp.kernel.compute(n_int)
 
@@ -96,10 +96,10 @@ def custom_build_w_vector(
     K_is = K_si.T
     K_ii = K_ii_prior
 
-    # observation covariance K_11
-    K_11 = np.block([[K_ss, K_si @ C_int.T], [C_int @ K_is, C_int @ K_ii @ C_int.T]])
+    K_11 = np.block([[K_ss, K_si @ C_int.T], 
+                     [C_int @ K_is, C_int @ K_ii @ C_int.T]])
     K_11 += np.eye(K_11.shape[0]) * cgp.jitter
-    # test covariance K_22
+
     K_22 = cgp.kernel.compute(cgp.x_test)
 
     # join training set
@@ -145,10 +145,14 @@ def generate_constrained_sample(
     point_nums=200,
     ceft_end=0,
     kern="SE",
+    burn_in=100
 ):
     """
     input n must be in nsat, if used in conjunction with make_condition_eos() that is automatically the case
     out n in nsat
+
+    conditions on log mu values for 2.6 GeV<mu<mu_high
+    and constrains 0<=cs2<=1 
     """
 
     (cs2_hat, X_hat, nu_hat, l_hat, alpha_hat) = sam.get_hype_samples(kern)
@@ -173,7 +177,6 @@ def generate_constrained_sample(
         n_ceft_end_hat = sam.get_hype_n_ceft_end()
     else:
         n_ceft_end_hat = ceft_end
-
     # n_ceft_end a hyperparameter
     idx = np.searchsorted(n_ceft, n_ceft_end_hat)
     idx_or_before = np.argmin(
@@ -181,17 +184,21 @@ def generate_constrained_sample(
     )
     if idx_or_before == 1:
         idx = idx + 1
+
     n_ceft = n_ceft[:idx]
+
     cs2_ceft_avg = cs2_ceft_avg[:idx]
 
     cs2_ceft_sigma = pc.CI_to_sigma(cs2_u_ceft - cs2_l_ceft, 95)
     cs2_ceft_sigma = cs2_ceft_sigma[:idx]
 
     (n_pqcd, cs2_pqcd) = pp.get_pqcd(X_hat, mu_low, mu_high, size=100)  # nsat, unitless
-    lg_mu_pqcd = pp.get_chempot_train(mu_ini, mu_low, mu_high, size=100)
-
-    x_train = np.concatenate((n_ceft, n_pqcd))  # fm^-3
-
+    
+    int_size = 5
+    lg_mu_pqcd = pp.get_chempot_train(mu_ini, mu_low=2.6, mu_high=mu_high, size=int_size)
+    (n_int_obs, _) = pp.get_pqcd(X_hat, mu_low=2.6, mu_high=mu_high, size=int_size)
+    n_int_obs = n_int_obs*ns  # nsat, unitless
+    x_train = np.concatenate((n_ceft, n_pqcd))*ns  # fm^-3
     cs2_train = np.concatenate((cs2_ceft_avg, cs2_pqcd))
     cs2_pqcd_sigma = np.zeros_like(cs2_pqcd)
 
@@ -199,8 +206,7 @@ def generate_constrained_sample(
 
     train_noise = cs2_sigma_train**2
 
-    x_test = np.linspace(n_ceft[0], x_test_end, point_nums)  # fm^-3
-
+    x_test = np.linspace(n_ceft[0], x_test_end, point_nums) * ns  # fm^-3
     cgp = CGP(
         kernel=kernel,
         x_train=x_train,
@@ -211,10 +217,11 @@ def generate_constrained_sample(
         jitter=1e-8,
     )
 
-    n_int = np.linspace(n_ceft[0], n_pqcd[-1], 400)
-    C = C_trapezoid(n_int, n_ceft[0], n_pqcd)
+    n_int = np.linspace(n_ceft[0], n_pqcd[-1], 400)*ns
 
-    x_c = np.linspace(n_ceft[-1], n_pqcd[0], 100)
+    C = C_trapezoid(n_int, n_ceft[0]*ns, n_int_obs)
+    
+    x_c = np.linspace(n_ceft[-1], n_pqcd[0], 100)*ns
     a_c = np.zeros_like(x_c)
     b_c = np.ones_like(x_c)
 
@@ -224,22 +231,19 @@ def generate_constrained_sample(
     cgp.set_constraints(x_c, A_bounds, b_bounds)
 
     custom_build_w_vector(cgp, n_int, C, lg_mu_pqcd)
-
     causality = False  # very rarely the noise from S* makes cs2 be below 0 or above 1, so just get another sample
-    tries = 0
     while not causality:
-        cs2_test = cgp.posterior(n_samples=1, eta_init=200.0, update_eta=True)
+        cs2_test = cgp.posterior(n_samples=1, eta_init=200.0, update_eta=True, burn_in=burn_in)
         if np.all(cs2_test >= 0) and np.all(cs2_test <= 1):
             causality = True
-        tries += 1
-        if tries > 1000:
-            print("WARNING: More than 1000 tries, possible hang!")
-            break
+
 
     cs2_test = cs2_test.flatten()
     cs2_test[0] = cs2_crust[
         -1
     ]  # minor difference in gpr result and actual crust ending so replacing gpr val
+
+    x_test = x_test / ns  # back to nsat
 
     return cs2_test, x_test, X_hat, n_ceft_end_hat, l_hat
 
@@ -256,10 +260,13 @@ def generate_bounded_sample(
     point_nums=200,
     ceft_end=0,
     kern="SE",
+    burn_in=100
 ):
     """
     input n must be in nsat, if used in conjunction with make_condition_eos() that is automatically the case
     out n in nsat
+
+    only does 0<=cs2<=1 constraints here
     """
 
     (cs2_hat, X_hat, nu_hat, l_hat, alpha_hat) = sam.get_hype_samples(kern)
@@ -301,7 +308,7 @@ def generate_bounded_sample(
 
     (n_pqcd, cs2_pqcd) = pp.get_pqcd(X_hat, mu_low, mu_high, size=100)  # nsat, unitless
 
-    x_train = np.concatenate((n_ceft, n_pqcd))  # fm^-3
+    x_train = np.concatenate((n_ceft, n_pqcd))  # nsat
 
     cs2_train = np.concatenate((cs2_ceft_avg, cs2_pqcd))
     cs2_pqcd_sigma = np.zeros_like(cs2_pqcd)
@@ -310,7 +317,7 @@ def generate_bounded_sample(
 
     train_noise = cs2_sigma_train**2
 
-    x_test = np.linspace(n_ceft[0], x_test_end, point_nums)  # fm^-3
+    x_test = np.linspace(n_ceft[0], x_test_end, point_nums)  # nsat
 
     cgp = CGP(
         kernel=kernel,
@@ -334,14 +341,10 @@ def generate_bounded_sample(
     cgp.build_w_vector()
 
     causality = False  # very rarely the noise from S* makes cs2 be below 0 or above 1, so just get another sample
-    tries = 0
     while not causality:
-        cs2_test = cgp.posterior(n_samples=1, eta_init=200.0, update_eta=True)
+        cs2_test = cgp.posterior(n_samples=1, eta_init=200.0, update_eta=True, burn_in=burn_in)
         if np.all(cs2_test >= 0) and np.all(cs2_test <= 1):
             causality = True
-        if tries > 1000:
-            print("WARNING: More than 1000 tries, possible hang!")
-            break
 
     cs2_test = cs2_test.flatten()
     

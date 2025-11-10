@@ -31,7 +31,7 @@ def get_hype_samples(kern: str | None = None):
 
     match kern:
         case "SE":
-            l = rng.uniform(1.5, 2)  # default (0.5,1.5)
+            l = rng.uniform(0.5, 1.5)  # default (0.5,1.5)
         case "RQ":
             l = rng.uniform(0.5, 1.5)
             alpha = rng.uniform(0.1, 10)

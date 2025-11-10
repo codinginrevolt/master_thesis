@@ -100,8 +100,6 @@ class CGP(GP):
             self.K_cc = K_cc
         if K_12 is not None:
             self.K_12 = K_12
-        if K_1c is not None:
-            self.K_1c = K_1c
         if K_2c is not None:
             self.K_2c = K_2c
         if K_22 is not None:
@@ -187,7 +185,7 @@ class CGP(GP):
 
         return self.mu_constr, self.cov_constr
 
-    def posterior(self, n_samples=50, eta_init=20.0, update_eta=True):
+    def posterior(self, n_samples=50, eta_init=20.0, update_eta=True, burn_in=100):
 
         z0 = tmg.project_onto_constraints(self.A, self.b, self.mu_Z)
 
@@ -201,6 +199,7 @@ class CGP(GP):
             n_samples=n_samples,
             eta_init=eta_init,
             update_eta=update_eta,
+            burn_in=burn_in,
         )
 
         Lz = cholesky(
