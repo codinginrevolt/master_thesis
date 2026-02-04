@@ -1,18 +1,27 @@
+"""
+Helpers to load and return the chiral EFT (ceft) band and crust eos
+"""
+
+
+###############################
 import numpy as np
 
-from constants import ns, crust_end, get_phi
+from constants import ns, crust_end, crust_end_old, get_phi
 from prepare_ceft import smooth_cs2, get_old_ini_vacuum
 import eos
 import kernels
 import gaussianprocess
 
 from pathlib import Path
-
 base_dir = Path(__file__).resolve().parent
-
+###############################
 
 def _load_ceft():
-    ####### loading the new ceft band ############
+    """
+    Load the new ceft band
+    From C. L. Armstrong, P. Giuliani, K. Godbey, R. Somasundaram, and I. Tews, 'Emulators for Scarce and Noisy Data: Application to Auxiliary-Field Diffusion Monte Carlo for Neutron Matter’, Phys. Rev. Lett., vol. 135, no. 14, p. 142501, Oct. 2025, doi: 10.1103/9928-wyjm.
+
+    """ 
     ceft_95 = np.loadtxt(
         base_dir / "EOS/chiEFT/chiEFT_band_95_percent_credibility.txt"
     ).T
@@ -53,7 +62,8 @@ def _load_crust():
 
 def get_ceft_cs2():
     """
-    Returns:
+    Returns
+    --------
     n_ceft in nsat,
     cs2_ceft_avg,
     cs2_ceft_lower,
@@ -69,7 +79,8 @@ def get_ceft_cs2():
 
 def get_ceft_phi():
     """
-    Returns:
+    Returns
+    --------
     n_ceft in nsat,
     phi_ceft_avg,
     phi_ceft_lower,
@@ -87,7 +98,7 @@ def get_ceft_phi():
 
 def get_ceft_ini():
     """
-    Output
+    Returns
     ------
     - e_ini
     - p_ini
@@ -108,12 +119,13 @@ def get_ceft_ini():
 
 def get_crust(value: str):
     """
-    Retrieve various physical properties of the neutron star crust, such as sound speed squared (cs2), chemical potential (mu),
-    pressure, or energy density, depending on the input argument.
+    Retrieve thermodynamic properties of the neutron star crust. 
+    (either sound speed squared (cs2), chemical potential (mu),
+    pressure, or energy density, based on the input argument)
 
-    Note that output is the same array 3 times as avg, lower and upper bound to support legacy code. New crust is a single curve, not a band.
+    Note that output is the same array 3 times as avg, lower and upper bound to support old code. New crust is a single curve, not a band.
 
-    Input
+    Parameters
     ----------
     value : str
         Specifies which property to compute and return. Must be one of the following:
@@ -122,7 +134,7 @@ def get_crust(value: str):
         - "pressure": Returns the pressure in the crust, in (MeV/fm^3)
         - "epsilon": Returns the energy density in the crust, in (MeV/fm^3)
 
-    Output
+    Returns
     -------
     tuple of numpy.ndarray
         All outputs are tuple of four numpy arrays:
@@ -137,6 +149,7 @@ def get_crust(value: str):
     """
 
     (n_crust, e_crust, p_crust, cs2_crust) = _load_crust()
+
 
     ######### crust eos ##############
     if value == "cs2":
@@ -155,10 +168,10 @@ def get_crust(value: str):
 
 def get_ceft(value: str):
     """
-    Retrieve various physical properties of the neutron star in 0.5-2nsat, such as chemical potential (mu),
+    Retrieve thermodynamic properties of of the neutron star in 0.5-2nsat, such as chemical potential (mu),
     pressure, or energy density, depending on the input argument.
 
-    Input
+    Parameters
     ----------
     value : str
         Specifies which property to compute and return. Must be one of the following:
@@ -166,12 +179,12 @@ def get_ceft(value: str):
         - "pressure": Returns the pressure in the crust, in (MeV/fm^3)
         - "epsilon": Returns the energy density in the crust, in (MeV/fm^3)
 
-    Output
+    Returns
     -------
     tuple of numpy.ndarray
         All outputs are tuple of four numpy arrays:
-        - n_crust_scaled : numpy.ndarray
-            Baryon density in the crust, in saturation density (n/n_sat, where n_sat=0.16 fm^-3).
+        - n_ceft : numpy.ndarray
+            Baryon density, in saturation density (n/n_sat, where n_sat=0.16 fm^-3).
         - avg : numpy.ndarray
             The average value (upper + lower)/2 of the requested property at each density.
         - lower : numpy.ndarray
@@ -225,9 +238,14 @@ def get_ceft(value: str):
 
 def get_n_test(n_end, numpoints):
     """
-    Input:
-    n_end: in nsat, corrresponding to sample's termination point,
-    numpoints: number of datapoints,
+    Get the test number density array including crust number density and gpr test number density
+
+    Parameters
+    ----------
+    n_end : float
+        in nsat, corresponding to sample's termination point,
+    numpoints : int
+        number of datapoints,
 
     Returns:
     n: in nsat, test array including crust number density and gpr test number density
@@ -278,20 +296,20 @@ def get_ceft_cs2_old():
     p_ceft = (p_ceft_lower + p_ceft_upper) / 2  # MeVfm^-3
 
     # seperating ceft proper
-    p_ceft_upper = p_ceft_upper[crust_end:]
-    p_ceft_lower = p_ceft_lower[crust_end:]
+    p_ceft_upper = p_ceft_upper[crust_end_old:]
+    p_ceft_lower = p_ceft_lower[crust_end_old:]
 
-    e_ceft_upper = e_ceft_upper[crust_end:]
-    e_ceft_lower = e_ceft_lower[crust_end:]
+    e_ceft_upper = e_ceft_upper[crust_end_old:]
+    e_ceft_lower = e_ceft_lower[crust_end_old:]
 
-    n_ceft = n_ceft[crust_end:]
-    e_ceft = e_ceft[crust_end:]
-    p_ceft = p_ceft[crust_end:]
+    n_ceft = n_ceft[crust_end_old:]
+    e_ceft = e_ceft[crust_end_old:]
+    p_ceft = p_ceft[crust_end_old:]
 
     # sound speed
-    cs2_ceft_lower = cs2_lower[crust_end:]
+    cs2_ceft_lower = cs2_lower[crust_end_old:]
     cs2_ceft_lower = smooth_cs2(n_ceft, cs2_ceft_lower, 6, 34, 101, 134)
-    cs2_ceft_upper = cs2_upper[crust_end:]
+    cs2_ceft_upper = cs2_upper[crust_end_old:]
     cs2_ceft_upper = smooth_cs2(n_ceft, cs2_ceft_upper, 35, 85, 95, 140)
     cs2_ceft_avg = (cs2_ceft_upper + cs2_ceft_lower) / 2
 
@@ -321,7 +339,7 @@ def get_crust_old(value: str):
     Retrieve various physical properties of the neutron star crust, such as sound speed squared (cs2), chemical potential (mu),
     pressure, or energy density, depending on the input argument.
 
-    Input
+    Parameters
     ----------
     value : str
         Specifies which property to compute and return. Must be one of the following:
@@ -330,7 +348,7 @@ def get_crust_old(value: str):
         - "pressure": Returns the pressure in the crust, in (MeV/fm^3)
         - "epsilon": Returns the energy density in the crust, in (MeV/fm^3)
 
-    Output
+    Returns
     -------
     tuple of numpy.ndarray
         All outputs are tuple of four numpy arrays:
@@ -348,13 +366,13 @@ def get_crust_old(value: str):
         _load_ceft_old()
     )
 
-    n_crust = n_crust[: crust_end + 1]
+    n_crust = n_crust[: crust_end_old + 1]
 
-    p_crust_upper = p_crust_upper[: crust_end + 1]
-    p_crust_lower = p_crust_lower[: crust_end + 1]
+    p_crust_upper = p_crust_upper[: crust_end_old + 1]
+    p_crust_lower = p_crust_lower[: crust_end_old + 1]
 
-    e_crust_upper = e_crust_upper[: crust_end + 1]
-    e_crust_lower = e_crust_lower[: crust_end + 1]
+    e_crust_upper = e_crust_upper[: crust_end_old + 1]
+    e_crust_lower = e_crust_lower[: crust_end_old + 1]
 
     if value == "cs2":
         cs2_crust_lower = np.gradient(p_crust_lower, e_crust_lower)  # dp/de
@@ -382,7 +400,7 @@ def get_ceft_old(value: str):
     Retrieve various physical properties of the neutron star in 0.5-2nsat, such as chemical potential (mu),
     pressure, or energy density, depending on the input argument.
 
-    Input
+    Parameters
     ----------
     value : str
         Specifies which property to compute and return. Must be one of the following:
@@ -390,7 +408,7 @@ def get_ceft_old(value: str):
         - "pressure": Returns the pressure in the crust, in (MeV/fm^3)
         - "epsilon": Returns the energy density in the crust, in (MeV/fm^3)
 
-    Output
+    Returns
     -------
     tuple of numpy.ndarray
         All outputs are tuple of four numpy arrays:
@@ -406,13 +424,13 @@ def get_ceft_old(value: str):
 
     (n_ceft, p_ceft_lower, e_ceft_lower, p_ceft_upper, e_ceft_upper) = _load_ceft_old()
 
-    n_ceft = n_ceft[crust_end:]
+    n_ceft = n_ceft[crust_end_old:]
 
-    p_ceft_upper = p_ceft_upper[crust_end:]
-    p_ceft_lower = p_ceft_lower[crust_end:]
+    p_ceft_upper = p_ceft_upper[crust_end_old:]
+    p_ceft_lower = p_ceft_lower[crust_end_old:]
 
-    e_ceft_upper = e_ceft_upper[crust_end:]
-    e_ceft_lower = e_ceft_lower[crust_end:]
+    e_ceft_upper = e_ceft_upper[crust_end_old:]
+    e_ceft_lower = e_ceft_lower[crust_end_old:]
 
     if value == "mu":
         mu_ceft_lower = (e_ceft_lower + p_ceft_lower) / n_ceft  # MeV
@@ -431,21 +449,26 @@ def get_ceft_old(value: str):
 
 def get_n_test_old(n_end, numpoints):
     """
-    Input:
-    n_end: in nsat, corrresponding to sample's termination point,
-    numpoints: number of datapoints,
+    Parameters
+    ----------
+    n_end : float
+        in nsat, corrresponding to sample's termination point,
+    numpoints : int
+        number of datapoints,
 
-    Returns:
-    n: in nsat, test array including crust number density and gpr test number density
+    Returns
+    -------
+    n : numpy.ndarray
+        in nsat, test array including crust number density and gpr test number density
     """
 
     ceft_lower = np.loadtxt(base_dir / "EOS/ceft/eos_ceft_lower.dat")
     (n_ceft_lower, _, _) = ceft_lower.T
 
     n_ceft = n_ceft_lower  # fm^-3
-    n_crust = n_ceft[:crust_end] / ns  # nsat
+    n_crust = n_ceft[:crust_end_old] / ns  # nsat
 
-    n_test = np.linspace(n_ceft[crust_end] / ns, n_end, numpoints)
+    n_test = np.linspace(n_ceft[crust_end_old] / ns, n_end, numpoints)
 
     n = np.concatenate((n_crust, n_test))
 

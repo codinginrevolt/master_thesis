@@ -1,11 +1,18 @@
 [samples]
 # number of samples to generate
-samples_number = 20
+samples_number = 10
+
+# kernel type: se, eqq, rq, m32, m52, ge, pp [but in capital]
+kernel = "RQ"
+
+# end value of number density (in n_sat) until which to trust chiral EFT (0.0 for turning into hyperparam or between 0.5 and 2)
+n_ceft_end = 0.0
 
 # end value of number density until which to do the GPR, units in n_sat
-n_end = 25
+n_end = 45
+
 # how many points should the GPR return
-n_points = 200
+n_points = 400
 
 # starting and ending value of chemical potential mu for pqcd calculation in GeV
 mu_start = 2.35
@@ -18,14 +25,19 @@ convert_eos = true
 return_only_eos = true
 
 # Whether to check if connection to pQCD possible, and reject ones that do not connect. If eos is not converted, it is set to false regardless of user choice.
+return_connecting = false
 
-return_connecting = true
+# Whether to return the renormalisation scale X for each sample, useful for matching pQCD given edens & pressure.
+# Setting to true also returns l_hat and n_ceft_end (if that is chosen to be a hyperparam) as well
+return_normscale = true
 
-# Whether to return the renormalisation scale X for each sample, useful for matching pQCD given edens & pressure. if pQCD matching is set to true (and eos converted), this is turned to false
-return_normscale = false
+# Use constrained GP for bounding cs2 and sampling in cs2 space itself. If set to true, ignores convert_eos and return_only_eos as phi is no longer used.
+use_cs2 = false
+
+# Connect to pQCD using chemical potential information and truncated gaussian sampling. Setting to true ignores use_cs2, convert_eos, return_only_eos, and return_connecting  as phi is no longer used and all samples are connected to pQCD
+use_mu_obs = false
 
 [output]
 # where to save .npy file
-# phi samples saved with "_phi", pressure-energydensity saved with "_eos"
-directory = "/home/sam/thesis/code/results/testing" # leave out last /
-filename = "25" # leave out extension .npy
+directory = "/home/sam/thesis/code/results/eos_samples" # leave out last /
+filename = "rq_test" # leave out extension .npy

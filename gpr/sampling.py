@@ -1,3 +1,8 @@
+"""
+Generate hyperparameter samples and GP samples for EoS construction.
+"""
+
+#####################
 import numpy as np
 from scipy.stats import loguniform
 
@@ -5,12 +10,24 @@ import kernels
 import gaussianprocess
 import prepare_pqcd as pp
 from constants import get_phi
-
+#####################
 
 def get_hype_samples(kern: str | None = None):
     """
-    Hyperparams for GP mean and kernel, as well as pqcd renormalisation scale
-    returns cs2_hat, X_hat, sigma_hat, l_hat, alpha_hat
+    Generate hyperparams for GP mean and kernel, as well as pqcd renormalisation scale
+
+    Parameters
+    ----------
+    kern: str | None
+        Kernel type. If None, defaults to "SE".
+
+    Returns
+    -------
+    cs2_hat: float, 
+    X_hat: float, 
+    sigma_hat: float, 
+    l_hat: float, 
+    alpha_hat: float
     """
 
     rng = np.random.default_rng()
@@ -34,7 +51,7 @@ def get_hype_samples(kern: str | None = None):
             l = rng.uniform(0.5, 1.5)  # default (0.5,1.5)
         case "RQ":
             l = rng.uniform(0.5, 1.5)
-            alpha = rng.uniform(0.1, 10)
+            alpha = rng.uniform(0.01, 10)
         case "M32":
             l = rng.uniform(0.580, 1.914)  # default (0.580, 1.914) ; high: (1.914, 2.552) 
         case "M52":
@@ -42,11 +59,15 @@ def get_hype_samples(kern: str | None = None):
         case "GE":
             l = rng.uniform(0.713, 2.310)  # default (0.713, 2.310) ; high: (2.14, 3.084)
             alpha = rng.uniform(1.6, 1.95)
+        case "PP":
+            l = rng.uniform(1, 2) # default (1.536, 4.608); high: (4.608, 6.145)
+
 
     return cs2_hat, X, nu, l, alpha
 
 
-def get_hype_n_ceft_end():  # it was easier to create a new fn than to add it to the one above
+def get_hype_n_ceft_end():  
+    # it was easier to create a new fn than to add it to the one above
     rng = np.random.default_rng()
     nc_hat = rng.uniform(1, 2)
     return nc_hat
@@ -66,8 +87,45 @@ def generate_sample(
     kern="SE",
 ):
     """
-    input n must be in nsat, if used in conjunction with make_condition_eos() that is automatically the case
-    out n in nsat
+    Generate a GP sample for the EoS construction
+
+    Parameters
+    ----------
+    n_ceft: np.ndarray
+        number density values from ceft data | must be in nsat (if used in conjunction with make_condition_eos() that is automatically the case)
+    cs2_ceft_avg: np.ndarray
+        average speed of sound squared values from ceft data
+    phi_ceft_sigma: np.ndarray
+        uncertainty in phi from ceft data
+    n_crust: np.ndarray
+        number density values from crust data | must be in nsat
+    cs2_crust: np.ndarray
+        speed of sound squared values from crust data
+    x_test_end: float
+        end value for number density test points | in nsat
+    mu_low: float
+        lower bound for pQCD input | in GeV
+    mu_high: float
+        upper bound for pQCD input | in GeV
+    point_nums: int
+        number of test points for GP
+    ceft_end: float
+        number density value to end ceft data at | in nsat; if 0, use hyperparam sampled value
+    kern: str
+        kernel type
+
+    Returns
+    -------
+    phi_test: np.ndarray
+        GP sampled phi values at test points
+    x_test: np.ndarray
+        number density test points | in nsat
+    X_hat: float
+        sampled pQCD renormalisation scale | unitless
+    n_ceft_end_hat: float
+        ceft end number density used | in nsat
+    l_hat: float
+        sampled kernel lengthscale | in nsat
     """
 
     (cs2_hat, X_hat, nu_hat, l_hat, alpha_hat) = get_hype_samples(kern)
@@ -83,6 +141,8 @@ def generate_sample(
             kernel = kernels.Kernel("M52", sigma=nu_hat**0.5, l=l_hat)
         case "GE":
             kernel = kernels.Kernel("GE", sigma=nu_hat**0.5, l=l_hat, gamma=alpha_hat)
+        case "PP":
+            kernel = kernels.Kernel("PP", sigma=nu_hat**0.5, l=l_hat, q=1)
         case _:
             raise ValueError("Invalid kernel value")
 

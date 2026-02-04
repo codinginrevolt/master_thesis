@@ -1,0 +1,6 @@
+set 2 is for higher lengthscale ranges [1.5-2]
+
+set 3 is for gpr in cs2 space with normal lengthscale [0.5-1.5]
+
+
+except for SE where set 2 and 3 are for lengthscale variation ([0.25-0.75] and [1.5-2] respectively). so the cs2 is set 4. set 5 is cs2 with [1.5-2]

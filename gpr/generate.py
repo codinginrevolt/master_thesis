@@ -1,3 +1,7 @@
+"""
+Entry point for generating EoS samples using Gaussian processes
+"""
+
 ############################################
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
@@ -18,10 +22,6 @@ import prepare_ceft as pc
 import append_results as ar
 import anal_helpers as anal
 from config import parse_config
-
-
-
-
 ############################################
 
 
@@ -39,33 +39,50 @@ def generate_and_check(
     cs2_u_ceft = None
 
 ):
+    """
+    Generate and check EoS samples based on the provided configuration and input parameters.
+
+    Parameters
+    ----------
+    config: Configuration object containing parameters for sample generation and validation.
+    n_ceft: Array of number densities for chiral EFT region (in nsat).
+    cs2_ceft_avg: Array of average squared sound speeds for chiral EFT region.
+    e_ini: Initial energy density at the crust-core boundary.
+    p_ini: Initial pressure at the crust-core boundary.
+    mu_ini: Initial chemical potential at the crust-core boundary.
+    cs2_crust: Array of squared sound speeds in the crust region.
+    phi_ceft_sigma: (Optional) Array of uncertainties in phi for chiral EFT region.
+    n_crust: (Optional) Array of number densities in the crust region (in nsat).
+    cs2_l_ceft: (Optional) Array of lower bounds for squared sound speeds in chiral EFT region.
+    cs2_u_ceft: (Optional) Array of upper bounds for squared sound speeds in chiral EFT region.
+
+    Returns
+    -------
+    result: Dictionary containing generated EoS data.
+    """
+
 
     import eos as EOS, sampling as sam, prepare_pqcd as pp, constrain_on_chempot as coc
 
-    if config.use_cs2 and not config.use_mu_obs:
-        (cs2_test, n, X_hat, n_ceft_end_hat, l_hat) = coc.generate_bounded_sample(        
-        n_ceft,
-        cs2_ceft_avg,
-        cs2_l_ceft,
-        cs2_u_ceft,
-        cs2_crust,
-        config.n_end,
-        config.mu_start,
-        config.mu_end,
-        config.n_points,
-        config.n_ceft_end,
-        config.kernel,
-        #burn_in=800 #for the ones in Jarvis
-    )
+    result = {
+        "accepted": False,
+        "e": None,
+        "p": None,
+        "cs2": None,
+        "phi": None,
+        "n": None,
+        "Xhat": None,
+        "l_hat": None,
+    }
 
-    elif config.use_mu_obs:
-        (cs2_test, n, X_hat, n_ceft_end_hat, l_hat) = coc.generate_constrained_sample(
+    if config.use_cs2 and not config.use_mu_obs:
+        try:
+            (cs2_test, n, X_hat, n_ceft_end_hat, l_hat) = coc.generate_bounded_sample(        
             n_ceft,
             cs2_ceft_avg,
             cs2_l_ceft,
             cs2_u_ceft,
             cs2_crust,
-            mu_ini,
             config.n_end,
             config.mu_start,
             config.mu_end,
@@ -74,6 +91,28 @@ def generate_and_check(
             config.kernel,
             #burn_in=800 #for the ones in Jarvis
         )
+        except RuntimeError:
+            return result  # no attempts could constrain sample properly, returns empty result
+
+    elif config.use_mu_obs:
+        try:
+            (cs2_test, n, X_hat, n_ceft_end_hat, l_hat) = coc.generate_constrained_sample(
+                n_ceft,
+                cs2_ceft_avg,
+                cs2_l_ceft,
+                cs2_u_ceft,
+                cs2_crust,
+                mu_ini,
+                config.n_end,
+                config.mu_start,
+                config.mu_end,
+                config.n_points,
+                config.n_ceft_end,
+                config.kernel,
+                #burn_in=800 #for the ones in Jarvis
+            )
+        except RuntimeError:
+            return result  # no attempts could constrain sample properly, returns empty result
 
     else:
         (phi, n, X_hat, n_ceft_end_hat, l_hat) = sam.generate_sample(
@@ -89,17 +128,6 @@ def generate_and_check(
             config.n_ceft_end,
             config.kernel,
         )
-
-    result = {
-        "accepted": False,
-        "e": None,
-        "p": None,
-        "cs2": None,
-        "phi": None,
-        "n": None,
-        "Xhat": None,
-        "l_hat": None,
-    }
 
     if config.convert_eos:
         if config.use_cs2:
@@ -139,6 +167,9 @@ def generate_and_check(
 
 
 def process_sample(args):
+    """
+    Wrapper to unpack arguments for multiprocessing.
+    """
     return generate_and_check(*args)
 
 
@@ -149,9 +180,9 @@ if __name__ == "__main__":
     raw_config = toml.load(config_file)
     config = parse_config(raw_config)
 
-    print("EOS characteristics:")
+    print("EoS characteristics:")
     print(
-        f"Generating {config.samples_n} EOS\n"
+        f"Generating {config.samples_n} EoS\n"
         f"with kernel {config.kernel},\n"
         f"ending at {config.n_end} nsat\n"
         f"with {config.n_points} points"

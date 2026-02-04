@@ -1,3 +1,5 @@
+# Not utilised for the thesis in the end
+
 import numpy as np
 from scipy.linalg import cho_solve, solve_triangular, cholesky
 from scipy.optimize import minimize

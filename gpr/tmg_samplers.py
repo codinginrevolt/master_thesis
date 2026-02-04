@@ -11,18 +11,21 @@ def softplus(x):
     """
     return np.maximum(x, 0) + np.log1p(np.exp(-np.abs(x)))
 
-
 def log_likelihood_approx(zeta, A, b, eta):
     """
     Approximate log likelihood for linear constraints A zeta + b >= 0
     using a scaled sigmoid function.
 
+    Parameters
+    ----------
     zeta: (d,) current sample
     A: (m, d) constraint matrix
     b: (m,) constraint offset
     eta: approximation strength
 
-    Returns: scalar log likelihood
+    Returns
+    -------
+    scalar log likelihood
     """
     logits = A @ zeta + b
     try:
@@ -47,6 +50,16 @@ def project_onto_constraints(A, b, z):
     Project vector z onto the feasible set defined by A x + b >= 0
     using CVXPY with CLARABEL solver.
     Solves: min_x 0.5 * ||x - z||² subject to A x + b >= 0
+
+    Parameters
+    ----------
+    A: (m, d) constraint matrix
+    b: (m,) constraint offset
+    z: (d,) point to be projected
+
+    Returns
+    -------
+    projected point
     """
     d = z.shape[0]
     x = cp.Variable(d)
@@ -66,6 +79,27 @@ def project_onto_constraints(A, b, z):
 def elliptical_slice_sampling(
     f, cov, A, b, eta, log_likelihood_fn, mu, max_attempts=100000, project_tol=1e-8
 ):
+    """
+    Inner loop of Algorithm 1 in hal-04792003v4
+    Elliptical Slice Sampling with projection for truncated multivariate normal.
+
+    Parameters
+    ----------
+    f: (d,) current centered state (z - mu)
+    cov: (d, d) covariance of the Gaussian
+    A: (m, d) constraint matrix
+    b: (m,) constraint offset
+    eta: approximation strength
+    log_likelihood_fn: function to compute log likelihood given absolute state z
+    mu: (d,) mean of the Gaussian
+    max_attempts: maximum number of attempts to find a valid sample
+    project_tol: tolerance for projection feasibility check
+
+    Returns
+    -------
+    f_prime: (d,) new centered state sample
+    """
+    
     nu = sample_prior(cov)
 
     # slice level evaluated at the absolute current state (z = f + mu)
@@ -76,20 +110,19 @@ def elliptical_slice_sampling(
 
     for _ in range(max_attempts):
         f_prime = f * np.cos(theta) + nu * np.sin(theta)
-        z_prime = f_prime + mu  # <-- ABSOLUTE variable
+        z_prime = f_prime + mu 
 
-        ll = log_likelihood_fn(z_prime, A, b, eta)  # <-- evaluate on absolute z
+        ll = log_likelihood_fn(z_prime, A, b, eta) 
 
         if ll > log_y:
             violation = A @ z_prime + b
             if np.any(violation < -project_tol):
-                # project in absolute space, then recheck slice level
                 z_proj = project_onto_constraints(A, b, z_prime)
                 ll_proj = log_likelihood_fn(z_proj, A, b, eta)
                 if ll_proj > log_y:
-                    return z_proj - mu  # return centered state
+                    return z_proj - mu  # return projected centered state
             else:
-                return f_prime  # feasible; return centered state
+                return f_prime  # return centered state
 
         # shrink bracket
         if theta < 0:
@@ -102,8 +135,32 @@ def elliptical_slice_sampling(
 
 
 def sample_tmvn_ess(
-    mu, cov, A, b, X, y, n_samples, burn_in=100, eta_init=20.0, update_eta=False
+    mu, cov, A, b, X=None, y=None, n_samples=1, burn_in=100, eta_init=20.0, update_eta=False
 ):
+    """
+    Approximate truncated multivariate normal sampling as in
+    "Hassan Maatouk, Didier Rullière, Xavier Bay. Truncated multivariate normal distribution under linear and nonlinear constraints. 2025. hal-04792003v4"
+    
+    Outer loop of Algorithm 1 in the paper.
+
+    Parameters
+    ----------
+    mu: (d,) mean of the Gaussian
+    cov: (d, d) covariance of the Gaussian
+    A: (m, d) constraint matrix
+    b: (m,) constraint offset
+    X: dummy input to match signature to  finite dimensional GP posterior samplers
+    y: dummy input same as  X
+    y: (n,) training targets
+    n_samples: number of samples to draw after burn-in
+    burn_in: number of burn-in samples to discard
+    eta_init: initial approximation strength
+    update_eta: whether to increase eta at each iteration
+    
+    Returns
+    -------
+    samples: (n_samples, d) array of samples from the approximate TMVN
+    """
     d = mu.shape[0]
     zeta = mu.copy()
     samples = []

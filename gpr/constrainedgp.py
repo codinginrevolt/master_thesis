@@ -1,3 +1,4 @@
+################################
 import numpy as np
 from scipy.linalg import cholesky, cho_solve, solve_triangular
 from collections.abc import Callable
@@ -5,12 +6,16 @@ from collections.abc import Callable
 from gaussianprocess import GP
 from kernels import Kernel
 import tmg_samplers as tmg
+################################
 
 
 class CGP(GP):
     """
     Constrained Gaussian Process class inheriting from GP
-    Based on Da Veiga  & Marcell (2012 & 2017)
+    Based on:
+    [1] S. Da Veiga and A. Marrel, ‘Gaussian process regression with linear inequality constraints’, Reliability Engineering & System Safety, vol. 195, p. 106732, Mar. 2020, doi: 10.1016/j.ress.2019.106732.
+    [2] S. Da Veiga and A. Marrel, ‘Gaussian process modeling with inequality constraints’, Annales de la Faculté des sciences de Toulouse: Mathématiques, vol. 21, no. 3, pp. 529–555, Oct. 2012, doi: 10.5802/afst.1344.
+
 
     User must define matrix A and vector b representing the linear constraints
 
@@ -34,6 +39,21 @@ class CGP(GP):
         b=None,
         jitter=1e-10,
     ) -> None:
+        """
+        Initialize the Constrained Gaussian Process.
+        Parameters
+        ----------
+        kernel: Kernel object defining the covariance function.
+        x_train: (n_train, d) training input data.
+        y_train: (n_train,) training target values.
+        x_test: (n_test, d) test input data where predictions are made.
+        var_f: signal variance for the kernel (optional).
+        prior_mean: prior mean function or value (optional).
+        x_constr: (n_constr, d) input locations where constraints are applied.
+        A: (m, n_constr) constraint matrix.
+        b: (m,) constraint offset vector.
+        jitter: small value added to the diagonal for numerical stability.
+        """
         super().__init__(kernel, prior_mean)
         self.x_train = x_train
         self.y_train = y_train
@@ -80,6 +100,19 @@ class CGP(GP):
         K_22=None,
         mean_train=None,
     ):
+        """
+        Build the W vector (eq 14 of Da Veiga & Marrel 2020)
+
+        Parameters
+        ----------
+        K_11: Covariance matrix for training points.
+        K_1c: Cross-covariance matrix between training and constraint points.
+        K_cc: Covariance matrix for constraint points.
+        K_12: Cross-covariance matrix between training and test points.
+        K_2c: Cross-covariance matrix between test and constraint points.
+        K_22: Covariance matrix for test points.
+        mean_train: Mean vector for training points.
+        """
 
         if K_11 is None or K_1c is None or K_cc is None or K_12 is None or K_22 is None:
             (
@@ -137,6 +170,19 @@ class CGP(GP):
         self.mean_star = self.mean_test + (self.K_12.T @ alpha)
 
     def approximate_moments(self, n_samples=50, eta_init=20.0, update_eta=True):
+        """
+        Approximate the constrained posterior moments (mean and covariance) using TMVN samples
+        Parameters
+        ----------
+        n_samples: Number of samples to draw from the TMVN.
+        eta_init: Initial value for the eta parameter in the sampler.
+        update_eta: Whether to update eta during sampling.
+        Returns
+        -------
+        mu_constr: Approximated constrained posterior mean.
+        cov_constr: Approximated constrained posterior covariance.
+        """
+
         # needs some more work, iffy on the centering
         self.Z_samples = tmg.sample_tmvn_ess(
             self.mu_Z,
@@ -186,7 +232,22 @@ class CGP(GP):
         return self.mu_constr, self.cov_constr
 
     def posterior(self, n_samples=50, eta_init=20.0, update_eta=True, burn_in=100):
+        """
+        Draw samples from the constrained GP posterior at test points.
+        
+        Parameters
+        ----------
+        n_samples: Number of samples to draw from the TMVN.
+        eta_init: Initial value for the eta parameter in the sampler.
+        update_eta: Whether to update eta during sampling.
+        burn_in: Number of initial samples to discard (burn-in period).
+        
+        Returns
+        -------
+        Ystar_samples: Samples drawn from the constrained GP posterior at test points.
 
+        Note: The justification for Ystar_samples = m_stars + eps can be found in the thesis chapter on constrained GPs.
+        """
         z0 = tmg.project_onto_constraints(self.A, self.b, self.mu_Z)
 
         self.Z_samples = tmg.sample_tmvn_ess(

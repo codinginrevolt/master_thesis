@@ -1,3 +1,4 @@
+#################################
 import numpy as np
 from scipy.stats import norm
 from scipy.interpolate import interp1d
@@ -11,12 +12,21 @@ import eos
 from pathlib import Path
 
 base_dir = Path(__file__).resolve().parent
-
+#################################
 
 def CI_to_sigma(width, CI=75):
     """
-    TODO: enable the same from any given CI to a sigma value.
+    Convert width of confidence interval to standard deviation assuming normal distribution
+    
+    Parameters
+    ----------
+    Width: width of the confidence interval
     CI: confidence interval percentage (e.g., 75 for 75%)
+    
+    Returns
+    -------
+    sig: float,
+         standard deviation
     """
     z = norm.ppf(1 - (1 - CI / 100) / 2)
     sig = np.abs(width) / (2 * z)
@@ -48,9 +58,30 @@ def smooth_cs2(n_ceft, cs2_ceft, a, b, c, d):
 
 def make_conditioning_eos():
     """
-    returns
-     - n in nsat
-     - cs2_ceft_avg, phi_ceft_sigma, e_ini, p_ini, mu_ini, n_crust/ns, e_crust, p_crust, cs2_crust
+    Creates conditioning EOS from the new chiEFT band data
+
+    Returns
+    --------
+    n: np.ndarray
+        number density in nsat
+    cs2_ceft_avg: np.ndarray
+        average sound speed squared from chiEFT band
+    phi_ceft_sigma: np.ndarray
+        standard deviation of phi from chiEFT band
+    e_ini: float
+        initial energy density at the crust-core boundary (MeV/fm³)
+    p_ini: float
+        initial pressure at the crust-core boundary (MeV/fm³)
+    mu_ini: float
+        initial chemical potential at the crust-core boundary (MeV)
+    n_crust/ns: np.ndarray
+        crust number density in nsat
+    e_crust: np.ndarray
+        crust energy density (MeV/fm³)
+    p_crust: np.ndarray
+        crust pressure (MeV/fm³)
+    cs2_crust: np.ndarray
+        crust sound speed squared
     """
 
     ####### loading the new ceft band #########
@@ -211,17 +242,3 @@ def make_conditioning_eos_old():
         p_crust,
         cs2_crust,
     )
-
-
-"""     return (
-        n_ceft[::12] / ns,
-        cs2_ceft_avg[::12],
-        phi_ceft_sigma[::12],
-        e_ini,
-        p_ini,
-        mu_ini,
-        n_crust/ns,
-        e_crust,
-        p_crust,
-        cs2_crust
-    ) """

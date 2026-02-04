@@ -1,3 +1,10 @@
+"""
+Module for generating GPR samples with constraints on the chemical potential integral of cs2/n,
+as well as simple bounded constraints on cs2 between 0 and 1 (despite the name of the file).
+Contains replacement functions for sampling.generate_sample() to handle constraints and integral observations.
+"""
+
+#############################
 import numpy as np
 
 import sampling as sam
@@ -7,17 +14,24 @@ import prepare_pqcd as pp
 from kernels import Kernel
 from constrainedgp import CGP
 from constants import ns
+#############################
 
-# despite the name of this file, it also contains bounded 0<=cs2<=1 constraints only too
 
 
 def C_trapezoid(Xc, n0, n_mu):
     """
+    Construct the trapezoidal integration matrix C for integrating cs2/n from n0 to n_mu points.
+
+    Parameters
+    ----------
     Xc: sorted (N_c,) grid for cs2
     n0: scalar lower limit
     n_mu: (M,) points where chemical potential mu is known
 
-    Returns C: (M, N_c) such that (C @ y_c)[i] ≈ ∫_{n0}^{n_mu[i]} cs2(n')/n' dn'
+    Returns 
+    -------
+    C: np.ndarray
+        (M, N_c) such that (C @ y_c)[i] ≈ ∫_{n0}^{n_mu[i]} cs2(n)/n dn
     """
     X = np.asarray(Xc).ravel()
     M = len(n_mu)
@@ -67,15 +81,28 @@ def C_trapezoid(Xc, n0, n_mu):
 
 
 def custom_build_w_vector(
-    cgp: CGP, n_int: np.ndarray, C_int: np.ndarray, int_train: np.ndarray
+    cgp: CGP, n_int: np.ndarray, C_int: np.ndarray, int_train: np.ndarray, mean_i:np.ndarray | None = None
 ):
     """
     As we are using integral observations as additional data, the kernels and prior means must be changed.
-    CGP class (or GP) is not built to handle this (I am too lazy to figure out how i can make this modular).
+    CGP class (or GP) is not built to handle this (I am too lazy to modularise this).
     So, the easiest way is to just modify the kernels and stuff from outside
+
+    Parameters
+    ----------
+    cgp: CGP
+        The constrained GP object
+    n_int: (N_int,) points where integral observations are made
+    C_int: (N_int, N_c) trapezoidal integration matrix for integral observations
+    int_train: (N_int,) integral observations to be added to training data
+    mean_i: (N_int,) prior mean at integral observation points (optional)
     """
 
-    (mean_train, mean_i) = cgp._set_means(cgp.x_train, n_int)
+    if mean_i is None:
+        (mean_train, _) = cgp._set_means(cgp.x_train, n_int)
+    else:
+        (mean_train, mean_i) = cgp._set_means(cgp.x_train, n_int)
+
     mean_train = np.ones_like(cgp.x_train) * mean_train
     mean_i = np.ones_like(n_int) * mean_i  # perhaps should be zero instead
 
@@ -148,16 +175,38 @@ def generate_constrained_sample(
     burn_in=100
 ):
     """
-    input n must be in nsat, if used in conjunction with make_condition_eos() that is automatically the case
-    out n in nsat
+    Generate a constrained sample of the speed of sound squared (0<=cs2<=1)  as a function of baryon density.
+    Conditioned on log chemical potential for 2.6 GeV<mu<mu_high as well.
 
-    conditions on log mu values for 2.6 GeV<mu<mu_high
-    and constrains 0<=cs2<=1 
+
+    Parameters
+    ----------
+    n_ceft: (N_c,) baryon density points from CEFT | in nsat (if used with make_conditioning_eos(), this is automatically the case)
+    cs2_ceft_avg: (N_c,) average cs2 values from CEFT
+    cs2_l_ceft: (N_c,) lower bound cs2 values from CEFT
+    cs2_u_ceft: (N_c,) upper bound cs2 values from CEFT
+    cs2_crust: (N_crust,) crust cs2 values
+    mu_ini: float, chemical potential at n_ini | in MeV
+    x_test_end: float, maximum baryon density for test points | in nsat
+    mu_low: float, lower limit of chemical potential | in GeV
+    mu_high: float, upper limit of chemical potential | in GeV
+    point_nums: int, number of test points
+    ceft_end: float, baryon density where CEFT ends | in nsat (set to 0 to treat as hyperparameter)
+    kern: str, kernel type
+    burn_in: int, number of burn-in samples for TMVN sampler
+
+    Returns
+    -------
+    cs2_test: (point_nums,) sampled speed of sound squared values at test points
+    x_test: (point_nums,) baryon density test points | in nsat
+    X_hat: float, renormalisation scale used in pQCD | in GeV
+    n_ceft_end_hat: float, baryon density where CEFT ends | in nsat
+    l_hat: float, lengthscale hyperparameter
     """
 
     (cs2_hat, X_hat, nu_hat, l_hat, alpha_hat) = sam.get_hype_samples(kern)
 
-    l_hat = l_hat  # fm^-3
+    l_hat = l_hat*ns  # fm^-3
 
     match kern:
         case "SE":
@@ -194,10 +243,11 @@ def generate_constrained_sample(
 
     (n_pqcd, cs2_pqcd) = pp.get_pqcd(X_hat, mu_low, mu_high, size=100)  # nsat, unitless
     
-    int_size = 5
+    int_size = 100
     lg_mu_pqcd = pp.get_chempot_train(mu_ini, mu_low=2.6, mu_high=mu_high, size=int_size)
     (n_int_obs, _) = pp.get_pqcd(X_hat, mu_low=2.6, mu_high=mu_high, size=int_size)
-    n_int_obs = n_int_obs*ns  # nsat, unitless
+    n_int_obs = n_int_obs*ns  # fm^-3
+    
     x_train = np.concatenate((n_ceft, n_pqcd))*ns  # fm^-3
     cs2_train = np.concatenate((cs2_ceft_avg, cs2_pqcd))
     cs2_pqcd_sigma = np.zeros_like(cs2_pqcd)
@@ -221,22 +271,47 @@ def generate_constrained_sample(
 
     C = C_trapezoid(n_int, n_ceft[0]*ns, n_int_obs)
     
-    x_c = np.linspace(n_ceft[-1], n_pqcd[0], 100)*ns
+    x_c_gap = np.linspace(n_ceft[-1], n_pqcd[0], 200)*ns # the constraints must span throughout
+    x_c_pqcd = np.linspace(n_pqcd[0], n_pqcd[-1], 30)*ns
+    x_c = np.concatenate((x_c_gap, x_c_pqcd))
+    
     a_c = np.zeros_like(x_c)
     b_c = np.ones_like(x_c)
+
+    x_c_ceft = n_ceft[::10]*ns # in CEFT, the bounds are defined by the CI instead of 0,1
+    a_c_ceft = cs2_l_ceft[::10]
+    b_c_ceft = cs2_u_ceft[::10]
+
+    x_c = np.concatenate((x_c_ceft, x_c))
+    a_c = np.concatenate((a_c_ceft, a_c))
+    b_c = np.concatenate((b_c_ceft, b_c))
+
 
     d = len(x_c)
     A_bounds = np.vstack([np.eye(d), -np.eye(d)])
     b_bounds = np.concatenate([-a_c, b_c])
     cgp.set_constraints(x_c, A_bounds, b_bounds)
 
-    custom_build_w_vector(cgp, n_int, C, lg_mu_pqcd)
+    custom_build_w_vector(cgp, n_int, C, lg_mu_pqcd, mean_i=np.mean(cs2_pqcd))
+    
     causality = False  # very rarely the noise from S* makes cs2 be below 0 or above 1, so just get another sample
+    attempt = 0
     while not causality:
-        cs2_test = cgp.posterior(n_samples=1, eta_init=200.0, update_eta=True, burn_in=burn_in)
-        if np.all(cs2_test >= 0) and np.all(cs2_test <= 1):
-            causality = True
+        cs2_test = cgp.posterior(n_samples=100, eta_init=200.0, update_eta=True, burn_in=burn_in)
+        attempt += 1
 
+        # check which samples are fully within [0,1]
+        valid_mask = np.all((cs2_test >= 0) & (cs2_test <= 1), axis=1)
+        valid_idxs = np.where(valid_mask)[0]
+
+        if valid_idxs.size > 0:
+            cs2_test = cs2_test[valid_idxs[0]] # pick the first valid sample
+            causality = True
+        else:
+            attempt += 1
+            if attempt > 10:
+                raise RuntimeError("Failed to generate a valid constrained sample after 10 attempts.")
+        
 
     cs2_test = cs2_test.flatten()
     cs2_test[0] = cs2_crust[
@@ -263,15 +338,36 @@ def generate_bounded_sample(
     burn_in=100
 ):
     """
-    input n must be in nsat, if used in conjunction with make_condition_eos() that is automatically the case
-    out n in nsat
+    Generate a constrained sample of the speed of sound squared (0<=cs2<=1)  as a function of baryon density.
 
-    only does 0<=cs2<=1 constraints here
+    Parameters
+    ----------
+    n_ceft: (N_c,) baryon density points from CEFT | in nsat (if used with make_conditioning_eos(), this is automatically the case)
+    cs2_ceft_avg: (N_c,) average cs2 values from CEFT
+    cs2_l_ceft: (N_c,) lower bound cs2 values from CEFT
+    cs2_u_ceft: (N_c,) upper bound cs2 values from CEFT
+    cs2_crust: (N_crust,) crust cs2 values
+    x_test_end: float, maximum baryon density for test points | in nsat
+    mu_low: float, lower limit of chemical potential | in GeV
+    mu_high: float, upper limit of chemical potential | in GeV
+    point_nums: int, number of test points
+    ceft_end: float, baryon density where CEFT ends | in nsat (set to 0 to treat as hyperparameter)
+    kern: str, kernel type
+    burn_in: int, number of burn-in samples for TMVN sampler
+
+    Returns
+    -------
+    cs2_test: (point_nums,) sampled speed of sound squared values at test points
+    x_test: (point_nums,) baryon density test points | in nsat
+    X_hat: float, renormalisation scale used in pQCD | in GeV
+    n_ceft_end_hat: float, baryon density where CEFT ends | in nsat
+    l_hat: float, lengthscale hyperparameter
     """
+
 
     (cs2_hat, X_hat, nu_hat, l_hat, alpha_hat) = sam.get_hype_samples(kern)
 
-    l_hat = l_hat  # fm^-3
+    l_hat = l_hat  # nsat
 
     match kern:
         case "SE":
@@ -329,7 +425,11 @@ def generate_bounded_sample(
         jitter=1e-8,
     )
 
-    x_c = np.linspace(n_ceft[-1], n_pqcd[0], 100)
+    x_c_gap = np.linspace(n_ceft[-1], n_pqcd[0], 200)*ns # the constraints must span throughout
+    x_c_ceft = np.linspace(n_ceft[0], n_ceft[-1], 10)*ns
+    x_c_pqcd = np.linspace(n_pqcd[0], n_pqcd[-1], 30)*ns
+    x_c = np.concatenate((x_c_ceft, x_c_gap, x_c_pqcd))
+
     a_c = np.zeros_like(x_c)
     b_c = np.ones_like(x_c)
 
@@ -341,10 +441,22 @@ def generate_bounded_sample(
     cgp.build_w_vector()
 
     causality = False  # very rarely the noise from S* makes cs2 be below 0 or above 1, so just get another sample
+    attempt = 0
     while not causality:
-        cs2_test = cgp.posterior(n_samples=1, eta_init=200.0, update_eta=True, burn_in=burn_in)
-        if np.all(cs2_test >= 0) and np.all(cs2_test <= 1):
+        cs2_test = cgp.posterior(n_samples=100, eta_init=200.0, update_eta=True, burn_in=burn_in)
+        attempt += 1
+
+        # check which samples are fully within [0,1]
+        valid_mask = np.all((cs2_test >= 0) & (cs2_test <= 1), axis=1)
+        valid_idxs = np.where(valid_mask)[0]
+
+        if valid_idxs.size > 0:
+            cs2_test[valid_idxs[0]] # select the first valid sample
             causality = True
+        else:
+            attempt += 1
+            if attempt > 10:
+                raise RuntimeError("Failed to generate a valid constrained sample after 10 attempts.")
 
     cs2_test = cs2_test.flatten()
     

@@ -48,7 +48,7 @@ class GP:
 
         (mean_train, mean_test) = self._set_means(
             x1, x2
-        )  # what happens if the mean_train is set to zero while the mean_train is left with the hyperparam
+        )  
         (K_11, K_12, K_22) = self._set_kernels(x1, x2, var_f, stabilise, jitter_value)
 
         f_tilde = f - mean_train  # setting f_tilde to have mean of zero

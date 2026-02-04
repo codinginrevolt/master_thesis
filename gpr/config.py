@@ -60,7 +60,7 @@ def parse_config(raw_config) -> SamplingConfig:
     if s["samples_number"] <= 0:
         raise ValueError("samples_number must be > 0")
 
-    if s["kernel"] not in ("SE", "RQ", "M32", "M52", "GE"):
+    if s["kernel"] not in ("SE", "RQ", "M32", "M52", "GE", "PP"):
         raise ValueError("chosen kernel not implemented yet")
 
     if not ((n_ceft_end == 0.0) or (0.5 <= n_ceft_end <= 2)):

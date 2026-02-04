@@ -9,7 +9,8 @@ class Kernel:
         """
         Initialize the kernel with a specific type and its hyperparameters.
 
-        Parameters:
+        Parameters
+        ----------
         - kernel_type: Type of kernel
             -- 'SE' for sqaured exponential
             -- 'RQ' for rational quadratic
@@ -29,12 +30,14 @@ class Kernel:
         """
         Compute the covariance matrix for the given inputs.
 
-        Parameters:
+        Parameters
+        ----------
         - x1: First input array.
         - x2: Second input array (optional, defaults to x1 for self-covariance).
         arrays can either be 1D or in shape (n,1)
 
-        Returns:
+        Returns
+        -------
         - Covariance matrix (NxN or NxM).
         """
 
@@ -50,8 +53,14 @@ class Kernel:
                 covariance_matrix: np.ndarray = self._M32(x1, x2)
             case "M52":
                 covariance_matrix: np.ndarray = self._M52(x1, x2)
+            case "M72":
+                covariance_matrix: np.ndarray = self._M72(x1, x2)
+            case "M12":
+                covariance_matrix: np.ndarray = self._M12(x1, x2)
             case "GE":
                 covariance_matrix: np.ndarray = self._GE(x1, x2)
+            case "PP":
+                covariance_matrix: np.ndarray = self._PP(x1, x2)
             case _:
                 raise ValueError(f"Unknown kernel type: {self.kernel_type}")
 
@@ -61,7 +70,15 @@ class Kernel:
     def visualise_kernel(
         covmat: np.ndarray, title: str | None = None, annotation: bool = True
     ) -> None:
-        """Visualise the covariance matrix as a heatmap"""
+        """
+        Visualise the covariance matrix as a heatmap
+        
+        Parameters
+        ----------
+        covmat: (n,n) array, covariance matrix to visualise
+        title: str, title of the plot
+        annotation: bool, whether to annotate the heatmap with values
+        """
         if title is None:
             Title = "Covariance Matrix"
         else:
@@ -73,31 +90,26 @@ class Kernel:
         plt.show()
 
     # defining kernels below
-    def _SEr(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
-        """The square exponential covariance function.
-        Only works for 1D input.
+    def _SE(self, x1, x2):
         """
+        The square exponential covariance function.
+        """
+        x1 = self._ensure_shape(x1)
+        x2 = self._ensure_shape(x2)
 
-        # ensure arrays are of shape (n,1)
-        x1: np.ndarray = self._ensure_shape(x1)
-        x2: np.ndarray = self._ensure_shape(x2)
+        sigma = self.params.get("sigma", 1.0)
+        l = self.params.get("l", 1.0)
 
-        sigma: float = self.params.get("sigma", 1)
-        l: float = self.params.get("l", 1)
-
-        r2: np.ndarray = cdist(x1, x2, metric="sqeuclidean")
-        K: np.ndarray = sigma**2 * np.exp(-0.5 * r2 / (l**2))
+        r2 = (x1 - x2.T) ** 2  
+        K = sigma**2 * np.exp(-0.5 * r2 / l**2)
 
         self.name = "Square Exponential"
-
         return K
 
     def _RQ(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
-        """The rational quadratic covariance function.
-        Only works for 1D input.
         """
-
-        # ensure arrays are of shape (n,1)
+        The rational quadratic covariance function.
+        """
         x1: np.ndarray = self._ensure_shape(x1)
         x2: np.ndarray = self._ensure_shape(x2)
 
@@ -106,7 +118,7 @@ class Kernel:
         alpha: float = self.params.get("alpha", 1)
 
         r2: np.ndarray = cdist(x1, x2, metric="sqeuclidean")
-        K: np.ndarray = sigma**2 * (1 + (-0.5 * r2 / (alpha * (l**2)))) ** (-alpha)
+        K: np.ndarray = sigma**2 * (1 + (0.5 * r2 / (alpha * (l**2)))) ** (-alpha)
 
         self.name = "Rational Quadratic"
 
@@ -114,10 +126,7 @@ class Kernel:
 
     def _M32(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         """The Matern 3/2 covariance function.
-        Only works for 1D input.
         """
-
-        # ensure arrays are of shape (n,1)
         x1: np.ndarray = self._ensure_shape(x1)
         x2: np.ndarray = self._ensure_shape(x2)
 
@@ -134,11 +143,9 @@ class Kernel:
         return K
 
     def _M52(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
-        """The Matern 5/2 covariance function.
-        Only works for 1D input.
         """
-
-        # ensure arrays are of shape (n,1)
+        The Matern 5/2 covariance function.
+        """
         x1: np.ndarray = self._ensure_shape(x1)
         x2: np.ndarray = self._ensure_shape(x2)
 
@@ -147,19 +154,60 @@ class Kernel:
 
         r: np.ndarray = np.sqrt(cdist(x1, x2, metric="sqeuclidean"))
         K: np.ndarray = (
-            sigma**2 * (1 + (np.sqrt(5) * r) / l) * np.exp(-((np.sqrt(5) * r) / l))
+            sigma**2 * (1 + ((np.sqrt(5) * r) / l)+ ((5*r**2)/(3*l**2)) ) * np.exp(-((np.sqrt(5) * r) / l))
         )
 
         self.name = "Matern 5/2"
 
         return K
 
-    def _GE(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
-        """The gamma exponential covariance function.
-        Only works for 1D input.
+    def _M72(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
         """
+        The Matern 7/2 covariance function.
+        """
+        x1: np.ndarray = self._ensure_shape(x1)
+        x2: np.ndarray = self._ensure_shape(x2)
 
-        # ensure arrays are of shape (n,1)
+        sigma: float = self.params.get("sigma", 1)
+        l: float = self.params.get("l", 1)
+
+        r: np.ndarray = np.sqrt(cdist(x1, x2, metric="sqeuclidean"))
+        K: np.ndarray = (
+            sigma**2
+            * (
+                1
+                + ((np.sqrt(7) * r) / l)
+                + ((14 * r**2) / (5 * l**2))
+                + ((7 * np.sqrt(7) * r**3) / (15 * l**3))
+            )
+            * np.exp(-((np.sqrt(7) * r) / l))
+        )
+
+        self.name = "Matern 7/2"
+
+        return K
+    
+    def _M12(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+        """
+        The Matern 1/2 covariance function (Exponential kernel).
+        """
+        x1: np.ndarray = self._ensure_shape(x1)
+        x2: np.ndarray = self._ensure_shape(x2)
+
+        sigma: float = self.params.get("sigma", 1)
+        l: float = self.params.get("l", 1)
+
+        r: np.ndarray = np.sqrt(cdist(x1, x2, metric="sqeuclidean"))
+        K: np.ndarray = sigma**2 * np.exp(-(r / l))
+
+        self.name = "Matern 1/2 (Exponential)"
+
+        return K
+
+    def _GE(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+        """
+        The gamma exponential covariance function.
+        """
         x1: np.ndarray = self._ensure_shape(x1)
         x2: np.ndarray = self._ensure_shape(x2)
 
@@ -174,22 +222,38 @@ class Kernel:
 
         return K
 
-    def _SE(self, x1, x2):
+
+    def _PP(self, x1, x2):
         """
-        Square-exponential using broadcasting
+        Piecewise Polynomial with Compact Support kernel
+        Eq 4.21 of GP book
+        Only implemented for q = 1, so process covariance function is 2 times continously differentiable.
+        Lengthscale l determines distance after which support is zero.
         """
-        # (n,1)   (m,1)
+        d = 1
+
         x1 = self._ensure_shape(x1)
         x2 = self._ensure_shape(x2)
 
         sigma = self.params.get("sigma", 1.0)
         l = self.params.get("l", 1.0)
+        q = self.params.get("q", 1.0)
 
-        # pairwise squared distance  (n,m) via broadcasting
-        r2 = (x1 - x2.T) ** 2  # no cdist
+        r = np.abs(x1 - x2.T) / l
 
-        K = sigma**2 * np.exp(-0.5 * r2 / l**2)
-        return K
+        j = np.floor(d/2) + q + 1
+
+        self.name = "Piecewise Polynomial"
+
+        if q == 1:
+            K = sigma**2 * np.maximum(0, 1 - r) ** (j + q) * ((j+1) * r + 1)
+            return K
+
+        if q == 2:
+            K = sigma**2 * np.maximum(0, 1 - r) ** (j + q) * (8 * r**2 + 5*r + 1)
+            return K
+        else:
+            raise NotImplementedError("Only q=1 and q=2 are implemented for PP kernel.")
 
     # utilities
     @staticmethod
