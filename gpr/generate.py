@@ -318,7 +318,7 @@ if __name__ == "__main__":
 
     if config.convert_eos:
         save_path_eos = os.path.join(config.save_dir, f"{config.filename}_eos.npy")
-        final_array_eos = np.array([results_e, results_p, results_cs2])
+        final_array_eos = np.array([results_e, results_p, results_cs2]) # npy in shape (3, n_samples, m_points)
         np.save(save_path_eos, final_array_eos)
 
         if config.return_normscale:
